@@ -144,16 +144,55 @@ remove_bad_feature_vectors <- function(peak_list, neg_qc_peaklist, percentage_th
   pretreated_peak_list <- peak_list[-rows_for_deleting, ]
   return(pretreated_peak_list)
 }
-
-pretreated_peak_list1 <- remove_bad_feature_vectors(neg_qc_peaklist, percentage_threshold=40)
+del40_neg_qc_peaklist <- remove_bad_feature_vectors(neg_qc_peaklist)
+del40_neg_qc_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_qc_peaklist, as.numeric)))
 
 # Fill in missing peak values by imputation using specmine
 # Create list object which has a data object that is the peaklist
 # containing IDs as rownames and QC names are column names
-gsk_qc_neg <- list(data = neg_qc_peaklist[, 14:ncol(neg_qc_peaklist)], type = "ms-spectra", description = "GSK pooled QC")
+specmine_qc_neg <- list(data = del40_neg_qc_peaklist[, 14:ncol(del40_neg_qc_peaklist)], type = "ms-spectra", description = "GSK pooled QC")
 
 # Replace NAs with mean
-impute_mean_gsk_qc_neg <- impute_nas_mean(gsk_qc_neg)
+impute_mean_gsk_qc_neg <- impute_nas_mean(specmine_qc_neg)
 
-# Replace Nas with k-means clustering
-impute_knn_gsk_qc_neg <- impute_nas_knn(gsk_qc_neg, k=10)
+# Do PCA plot to check if there are batch effects from the 4 analytical blocks
+pca_data <- cbind(impute_mean_gsk_qc_neg$data)
+rownames(pca_data) <- del40_neg_qc_peaklist[,"idx"]
+pca_data <- t(pca_data)
+# Create vector containing block information
+sample_names <- colnames(del40_neg_qc_peaklist)
+sample_names <- sample_names[14:length(sample_names)]
+block <- integer(0)
+for (i in 1:length(sample_names)) {
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+pca_data <- cbind(pca_data, block)
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+
+# Now do PCA
+library(ggfortify)
+data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(data[,1:ncol(data)-1]), data = data, colour = 'block')
+
+# Replace NAs with k-means clustering
+impute_knn_gsk_qc_neg <- impute_nas_knn(specmine_qc_neg, k=10)
+# The peak list is in impute_knn_gsk_qc_neg$data$data
+# Add in idx and analytical block metadata
+knn_qc_neg <- cbind(del40_neg_qc_peaklist[,1:12], impute_knn_gsk_qc_neg$data$data)
+
+# Calculate RSDs by dividing the standard deviation by the mean and then
+# multiply the result by 100 to express it as a percentage.
+rsd <- function(mean, sd){
+  (sd/mean)*100
+}
