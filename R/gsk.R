@@ -147,11 +147,13 @@ remove_bad_feature_vectors <- function(peak_list, neg_qc_peaklist, percentage_th
 
 pretreated_peak_list1 <- remove_bad_feature_vectors(neg_qc_peaklist, percentage_threshold=40)
 
-# Now need to fill in missing peak values
-# Need to impute value for NA row by row since each row represent a specific
-# peak
-# Use specmine
-# Need to create a list object which has a data object that is the peaklist containing IDs as rownames and QC names are column names
+# Fill in missing peak values by imputation using specmine
+# Create list object which has a data object that is the peaklist
+# containing IDs as rownames and QC names are column names
 gsk_qc_neg <- list(data = neg_qc_peaklist[, 14:ncol(neg_qc_peaklist)], type = "ms-spectra", description = "GSK pooled QC")
 
+# Replace NAs with mean
 impute_mean_gsk_qc_neg <- impute_nas_mean(gsk_qc_neg)
+
+# Replace Nas with k-means clustering
+impute_knn_gsk_qc_neg <- impute_nas_knn(gsk_qc_neg, k=10)
