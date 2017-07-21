@@ -4,7 +4,6 @@ library(naturalsort)
 library(matrixStats)
 library(specmine)
 library(impute)
-
 library(ggfortify)
 
 # Read metadata file
@@ -235,8 +234,35 @@ ggsave("impute_knn_pca_data.png")
 # Data filtering using RSDs #
 #############################
 
-# Calculate RSDs by dividing the standard deviation by the mean and then
-# multiply the result by 100 to express it as a percentage.
-rsd <- function(mean, sd){
-  (sd/mean)*100
+calc_rsd_from_row <- function(row) {
+	rsd <- (row[,'feature_vector_standard_deviations']/row[,'feature_vector_means']) * 100
+	feature_vector_rsd <- c(feature_vector_rsd, rsd)
+}
+
+#Prepare data for RSD analysis
+data <- impute_mean_gsk_qc_neg$data
+rownames(data) <- del40_neg_qc_peaklist[,"idx"]
+
+# Need to process data by rows according to peaks across QC samples
+# Peaks are removed if its RSD QC value was >20%; i.e. the analytical
+# reproducibility of the peak was considered too high.
+filter_by_rsd <- function(data, feature_percent_threshold = 20, feature_vector_percent_threshold = 60) {
+  # Calculate mean for each feature vector row
+  feature_vector_means <- rowMeans(data)
+  # Calculate standard deviation by feature vector row
+  feature_vector_standard_deviations <- apply(data, 1, sd)
+  # Check feature_vector_means and feature_vector_standard_deviations lengths
+  if (length(feature_vector_means) != length(feature_vector_standard_deviations)) {
+  	print(paste0("feature_vector_means length is not equal to feature_vector_standard_deviations length"))
+  }
+  # Calculate RSD per row from above matrix and add as third column by dividing the standard deviation by the mean and then multiply the result by 100 to express it as a percentage.
+  feature_vector_rsd <- vector('numeric')
+  lapply(data, calc_rsd_from_row)
+
+
+  # Column bind feature_vector_means and feature_vector_standard_deviations
+  # data <- cbind(data, feature_vector_means, feature_vector_standard_deviations)
+  # List peak IDs from rownames which are above 20% and need removing from
+  # feature vector matrix
+
 }
