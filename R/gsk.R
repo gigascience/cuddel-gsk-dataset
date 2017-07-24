@@ -230,14 +230,9 @@ autoplot(prcomp(impute_knn_pca_data[,1:ncol(impute_knn_pca_data)-1]), data = imp
 ggsave("impute_knn_pca_data.png")
 
 
-#############################
-# Data filtering using RSDs #
-#############################
-
-calc_rsd_from_row <- function(row) {
-	rsd <- (row[,'feature_vector_standard_deviations']/row[,'feature_vector_means']) * 100
-	feature_vector_rsd <- c(feature_vector_rsd, rsd)
-}
+######################
+# Filter data by RSD #
+######################
 
 #Prepare data for RSD analysis
 data <- impute_mean_gsk_qc_neg$data
@@ -246,7 +241,7 @@ rownames(data) <- del40_neg_qc_peaklist[,"idx"]
 # Need to process data by rows according to peaks across QC samples
 # Peaks are removed if its RSD QC value was >20%; i.e. the analytical
 # reproducibility of the peak was considered too high.
-filter_by_rsd <- function(data, feature_percent_threshold = 20, feature_vector_percent_threshold = 60) {
+filter_by_rsd <- function(data, feature_percent_threshold = 20) {
   # Calculate mean for each feature vector row
   feature_vector_means <- rowMeans(data)
   # Calculate standard deviation by feature vector row
@@ -256,13 +251,20 @@ filter_by_rsd <- function(data, feature_percent_threshold = 20, feature_vector_p
   	print(paste0("feature_vector_means length is not equal to feature_vector_standard_deviations length"))
   }
   # Calculate RSD per row from above matrix and add as third column by dividing the standard deviation by the mean and then multiply the result by 100 to express it as a percentage.
-  feature_vector_rsd <- vector('numeric')
-  lapply(data, calc_rsd_from_row)
-
+  feature_vector_rsds <- apply(data[,1:84 ], 1, function(data) {
+    sd <- sd(data)
+	mean <- mean(data)
+	rsd <- (sd/mean) * 100
+	return(rsd)
+  })
 
   # Column bind feature_vector_means and feature_vector_standard_deviations
-  # data <- cbind(data, feature_vector_means, feature_vector_standard_deviations)
-  # List peak IDs from rownames which are above 20% and need removing from
+  data <- cbind(data, feature_vector_means, feature_vector_standard_deviations,feature_vector_rsds)
+  # List peak IDs from rownames which are above 20% RSD and need removing from
   # feature vector matrix
-
+  rows_for_deleting <- which(data[,87] > 20)
+  data <- data[-rows_for_deleting, ]
+  return(data)
 }
+
+data <- filter_by_rsd(data)
