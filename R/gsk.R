@@ -187,7 +187,7 @@ write.table(impute_mean_pca_data, file = "impute_mean_pca_data.csv", sep =",", r
 
 # Now do PCA
 impute_mean_pca_data <- read.table(file = "impute_mean_pca_data.csv", sep=",")
-autoplot(prcomp(impute_mean_pca_data[,1:ncol(impute_mean_pca_data)-1]), data = impute_mean_pca_data, colour = 'block' main = 'Mean imputation for missing values')
+autoplot(prcomp(impute_mean_pca_data[,1:ncol(impute_mean_pca_data)-1]), data = impute_mean_pca_data, colour = 'block', main = 'Mean imputation for missing values')
 ggsave("impute_mean_pca_data.png")
 
 ##################################################
@@ -268,3 +268,33 @@ filter_by_rsd <- function(data, feature_percent_threshold = 20) {
 }
 
 data <- filter_by_rsd(data)
+data <- data[,1:84]
+
+#####################################
+# Do PCA to check batch differences #
+#####################################
+
+# Create vector containing block information
+sample_names <- colnames(data)
+sample_names <- sample_names[1:84]
+block <- integer(0)
+for (i in 1:length(sample_names)) {
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+data <- cbind(data, block)
+write.table(data, file = "data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+
+data <- read.table(file = "data.csv", sep=",")
+autoplot(prcomp(data[,1:ncol(data)-1]), data = data, colour = 'block', main = 'After filtering data')
+ggsave("after_data_filtering.png")
