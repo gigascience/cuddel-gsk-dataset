@@ -94,6 +94,42 @@ neg_qc_fnames <- substr(neg_qc_fnames, 1, nchar(neg_qc_fnames)-4)
 # Get peak list df for neg QCs
 neg_qc_peaklist <- neg_peaklist[neg_qc_fnames]
 
+###########################################
+# Do PCA to check negative peak list data #
+###########################################
+# Create vector containing block information
+sample_names <- colnames(neg_qc_peaklist)
+block <- integer(0)
+for (i in 1:length(sample_names)) {
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+
+# Transpose data
+pca_data <- t(neg_qc_peaklist)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, block)
+# PCA cannot be performed on data with missing values
+# Remove missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'block', main = 'PCA on unprocessed negative QC data')
+ggsave("unprocessed_neg_qc_pca.png")
+
+###########################################
+
 # There should be 84 QCs
 length(neg_qc_fnames)
 [1] 84
