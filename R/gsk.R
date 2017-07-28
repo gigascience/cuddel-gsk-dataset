@@ -128,26 +128,45 @@ pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'block', main = 'PCA on unprocessed negative QC data')
 ggsave("unprocessed_neg_qc_pca.png")
 
-###########################################
+#########################################################################
+# Do PCA to check negative peak list data after removing all peaks with #
+# missing values 														#
+#########################################################################
+# Remove missing values since PCA cannot be performed with NAs
+pca_data <- na.omit(neg_qc_peaklist)
+# Remove columns containing metadata
+pca_data <- pca_data[,14:ncol(pca_data)]
+# Create vector containing block information
+sample_names <- colnames(pca_data)
+block <- integer(0)
+for (i in 1:length(sample_names)) {
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
 
-# There should be 84 QCs
-length(neg_qc_fnames)
-[1] 84
+# Transpose data
+pca_data <- t(pca_data)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, block)
 
-# To get only QC data for row 1
-# The 13th column is the first QC column
-# neg_qc_peaklist[1,13:ncol(neg_qc_peaklist)]
-neg_qc_peaklist[1, 1:ncol(neg_qc_peaklist)]
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'block', main = 'PCA on negative QC data after removing nas')
+ggsave("no_nas_neg_qc_pca.png")
 
-# Get number of NA in row 1
-# sum(is.na(neg_qc_peaklist[1,13:ncol(neg_qc_peaklist)]))
-sum(is.na(neg_qc_peaklist[1, 1:ncol(neg_qc_peaklist)]))
-
-# Calculate percentage missing values in row 4
-# 100*(sum(is.na(neg_qc_peaklist[4, 1:ncol(neg_qc_peaklist)]))/ncol(neg_qc_peaklist[ ,1:ncol(neg_qc_peaklist)]))
-100*(sum(is.na(neg_qc_peaklist[4, 1:ncol(neg_qc_peaklist)]))/ncol(neg_qc_peaklist))
-
-# Calculate percentage nas for each peak (row)
+###############################################################
+# Calculate percentage of missing values for each feature row #
+###############################################################
 percent_nas <-rep(0, nrow(neg_qc_peaklist))
 calculate_percentage_na <- function(peak_intensities){
   for (i in 1:nrow(peak_intensities)) {
@@ -164,10 +183,10 @@ percent_nas <- calculate_percentage_na(neg_qc_peaklist)
 # Paste percent_nas onto QC data frame
 neg_qc_peaklist <- cbind(neg_peaklist[1:12], percent_nas, neg_peaklist[neg_qc_fnames])
 
-#################################################
-# Get rid of rows with 40% or more missing values
-#################################################
-remove_bad_feature_vectors <- function(peak_list, neg_qc_peaklist, percentage_threshold = 40){
+###############################################
+# Remove rows with 40% or more missing values #
+###############################################
+remove_bad_feature_vectors <- function(peak_list, percentage_threshold = 40){
   rows_for_deleting <- vector('numeric')
   for (i in 1:nrow(peak_list)) {
     row <- peak_list[i, ]
@@ -184,14 +203,13 @@ remove_bad_feature_vectors <- function(peak_list, neg_qc_peaklist, percentage_th
 del40_neg_qc_peaklist <- remove_bad_feature_vectors(neg_qc_peaklist)
 del40_neg_qc_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_qc_peaklist, as.numeric)))
 
-# Fill in missing peak values by imputation using specmine
-# Create list object which has a data object that is the peaklist
+##############################################################
+# Impute means to replace remaining NA values using specmine #
+##############################################################
+# Create list object containing a data object that is the peaklist
 # containing IDs as rownames and QC names are column names
 specmine_qc_neg <- list(data = del40_neg_qc_peaklist[, 14:ncol(del40_neg_qc_peaklist)], type = "ms-spectra", description = "GSK pooled QC")
 
-###################################
-# Impute means for missing values #
-###################################
 # Replace NAs with mean
 impute_mean_gsk_qc_neg <- impute_nas_mean(specmine_qc_neg)
 
