@@ -303,9 +303,9 @@ filter_by_rsd <- function(data, feature_percent_threshold = 20) {
 
 rsd_knn_qc_neg <- filter_by_rsd(impute_knn_qc_neg)
 
-###########################################
-# Do PCA to check effect of RSD filtering #
-###########################################
+############################################################
+# Do PCA to check effect of RSD filtering after imputation #
+############################################################
 
 # Create vector containing block information
 sample_names <- colnames(rsd_knn_qc_neg)
@@ -329,5 +329,113 @@ rsd_knn_qc_neg <- cbind(rsd_knn_qc_neg, block)
 write.table(rsd_knn_qc_neg, file = "rsd_knn_qc_neg.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 rsd_knn_qc_neg_pca_data <- read.table(file = "rsd_knn_qc_neg.csv", sep=",")
-autoplot(prcomp(rsd_knn_qc_neg_pca_data[,1:ncol(rsd_knn_qc_neg_pca_data)-1]), data = rsd_knn_qc_neg_pca_data, colour = 'block', main = 'PCA on rsd_knn_qc_neg data')
+autoplot(prcomp(rsd_knn_qc_neg_pca_data[,1:ncol(rsd_knn_qc_neg_pca_data)-1]), data = rsd_knn_qc_neg_pca_data, colour = 'block', main = 'PCA on RSD filtered, k-means imputed QC negative data')
 ggsave("pca_rsd_knn_qc_neg.png")
+
+###########################################
+# Get sample file names which are not QCs #
+###########################################
+get_neg_sample_file_paths <- function(x, output) {
+  file_name_neg <- x[3]
+  type <- x[10]
+  qc_meta_all <- x[12]
+  block <- x[13]
+  if (type == "Sample" & block == "1") {
+    qc_file <- paste(neg_dir, "/block1neg/", file_name_neg, ".cdf", sep = "")
+  }
+  else if (type == "Sample" & block == "2") {
+    qc_file <- paste(neg_dir, "/block2neg/", file_name_neg, ".cdf", sep = "")
+  }
+  else if (type == "Sample" & block == "3") {
+    qc_file <- paste(neg_dir, "/block3neg/", file_name_neg, ".cdf", sep = "")
+  }
+  else if (type == "Sample" & block == "4") {
+    qc_file <- paste(neg_dir, "/block4neg/", file_name_neg, ".cdf", sep = "")
+  }
+  else {
+    qc_file <- "QC"
+  }
+}
+neg_sample_files <- apply(meta_all, 1, get_neg_sample_file_paths, output = sample_files)
+# Remove "QC" values in character vector
+neg_sample_files <- neg_sample_files [! neg_sample_files %in% "QC"]
+# Sort negative sample filenames
+neg_sample_files <- naturalsort(neg_sample_files)
+
+neg_sample_fnames <- substr(neg_sample_files, 46, 80)
+neg_sample_fnames <- substr(neg_sample_fnames, 1, nchar(neg_sample_fnames)-4)
+
+#####################################################
+# Prepare negative QC and sample data for joint PCA #
+#####################################################
+
+# Combine QC and sample filenames
+neg_fnames <- c(neg_qc_fnames, neg_sample_fnames)
+# Create matrix containing QC and sample peaklists
+neg_qc_sample_peaklist <- neg_peaklist[neg_fnames]
+
+#################################################
+# Do joint PCA to check negative peak list data #
+#################################################
+# Create vector containing QC and sample information
+pca_meta_qc_sample <- integer(0)
+pca_meta_qc_sample[1:length(neg_qc_fnames)] <- "QC"
+pca_meta_qc_sample[length(neg_qc_fnames)+1:length(neg_sample_fnames)] <- "Sample"
+
+# Create vector containing QC, sample and block information
+pca_meta_qc_sample_block <- integer(0)
+colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
+for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
+  if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+  	pca_meta_qc_sample_block[i] <- "QC_block1"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+    pca_meta_qc_sample_block[i] <- "QC_block2"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+      pca_meta_qc_sample_block[i] <- "QC_block3"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+	pca_meta_qc_sample_block[i] <- "QC_block4"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+	pca_meta_qc_sample_block[i] <- "Sample_block1"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+  	pca_meta_qc_sample_block[i] <- "Sample_block2"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+	pca_meta_qc_sample_block[i] <- "Sample_block3"
+  }
+  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+  	pca_meta_qc_sample_block[i] <- "Sample_block4"
+  }
+}
+
+# Transpose data
+pca_data <- t(neg_qc_sample_peaklist)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, pca_meta_qc_sample)
+# PCA cannot be performed on data with missing values
+# Remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_pca.png")
+
+####
+
+# Transpose data
+pca_data <- t(neg_qc_sample_peaklist)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, pca_meta_qc_sample_block)
+# PCA cannot be performed on data with missing values
+# Remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample_block', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_block_pca.png")
