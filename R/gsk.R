@@ -412,6 +412,24 @@ for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
   }
 }
 
+# Create vector containing block numbers for labelling shapes
+pca_meta_qc_block <- integer(0)
+colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
+for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
+  if (grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+  	pca_meta_qc_block[i] <- "block1"
+  }
+  else if (grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+    pca_meta_qc_block[i] <- "block2"
+  }
+  else if (grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+      pca_meta_qc_block[i] <- "block3"
+  }
+  else if (grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+	pca_meta_qc_block[i] <- "block4"
+  }
+}
+
 # Transpose data
 pca_data <- t(neg_qc_sample_peaklist)
 # Add block information to PCA data
@@ -425,17 +443,16 @@ pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
 ggsave("unprocessed_neg_qc_sample_pca.png")
 
-####
-
+# Using different shapes and colours for labelling analytical blocks, QCs and samples
 # Transpose data
 pca_data <- t(neg_qc_sample_peaklist)
 # Add block information to PCA data
-pca_data <- cbind(pca_data, pca_meta_qc_sample_block)
+pca_data <- cbind(pca_data, pca_meta_qc_sample, pca_meta_qc_block)
 # PCA cannot be performed on data with missing values
 # Remove peak rows if it contains missing values
 pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
 
 write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample_block', main = 'PCA on unprocessed negative QC and sample data')
-ggsave("unprocessed_neg_qc_sample_block_pca.png")
+autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape = 'pca_meta_qc_block', colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_pca.png")
