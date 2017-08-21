@@ -53,38 +53,36 @@ GSK_neg_block1_31r
 # Read in metadata for data analysis #
 ######################################
 
-###################
-# Get QC raw data
 # Read metadata file
 meta_all <- read.csv("/home/peter/gsk/meta/meta_all.csv")
-# Extract QCs
-qc_meta_all <- subset(meta_all, type == "QC")
-# Sort QCs by block then order
-qc_meta_all <- qc_meta_all [ with(qc_meta_all, order(block, order)), ]
-# Create file paths
-neg_dir = "/home/peter/gsk/raw/esi_neg/netcdf"
-get_neg_file_paths <- function(x, output) {
-  file_name_neg <- x[3]
-  type <- x[10]
-  qc <- x[12]
-  block <- x[13]
-  if (block == "1") {
-    file <- paste(neg_dir, "/block1neg/", file_name_neg, ".cdf", sep = "")
-  }
-  else if (block == "2") {
-    file <- paste(neg_dir, "/block2neg/", file_name_neg, ".cdf", sep = "")
-  }
-  else if (block == "3") {
-    file <- paste(neg_dir, "/block3neg/", file_name_neg, ".cdf", sep = "")
-  }
-  else if (block == "4") {
-    file <- paste(neg_dir, "/block4neg/", file_name_neg, ".cdf", sep = "")
-  }
-}
 
-neg_files <- apply(meta_all, 1, get_neg_file_paths, output = files)
-# Sort negative QC filenames
-neg_files <- naturalsort(neg_files)
+# Use file_name_neg as rownames
+rownames(meta_all) <- meta_all$file_name_neg
+
+# Delete file_name_neg and file_name_pos columns
+meta_all$file_name_neg <- NULL
+meta_all$file_name_pos <-
+
+# Order files based on run order column
+meta_all <- meta_all[order(meta_all$order),]
+
+# Get paths for all negative files
+neg_dir = "/home/peter/gsk/raw/esi_neg/netcdf"
+neg_files <- character(0)
+neg_files <- unlist(lapply(rownames(meta_all), function(x)
+  if (meta_all[x, "block"] == 1) {
+    paste(neg_dir, "/block1neg/", x, ".cdf", sep = "")
+  }
+  else if (meta_all[x, "block"] == "2") {
+    file <- paste(neg_dir, "/block2neg/", x, ".cdf", sep = "")
+  }
+  else if (meta_all[x, "block"] == "3") {
+    file <- paste(neg_dir, "/block3neg/", x, ".cdf", sep = "")
+  }
+  else if (meta_all[x, "block"] == "4") {
+    file <- paste(neg_dir, "/block4neg/", x, ".cdf", sep = "")
+  }
+))
 
 ########################
 # Apply XCMS onto data #
@@ -92,23 +90,29 @@ neg_files <- naturalsort(neg_files)
 
 # Create xcmsSet object using findPeaks parameters from Eva's thesis
 # This is compute intensive and will take time to complete!!
-neg_xset <- xcmsSet(neg_files, step = 0.02, snthresh=3, mzdiff = 0.05)
+neg_xset <- xcmsSet(neg_files, step = 0.02, snthresh = 3, mzdiff = 0.05)
+
+# Need to remove missing values in metadata otherwise XCMS group cmd fails
+meta_all_no_na <- meta_all[, 1:11]
+# Add metadata to XCMS object
+phenoData(neg_xset) <- meta_all_no_na
 
 # Match peaks representing same analyte across samples
 grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
 
 # QC3=retcor(QC2, family="s", span=0.2)
-retcor_grp_neg_xset = retcor(grp_neg_xset, family="s", span=0.2)
+retcor_grp_neg_xset = retcor(grp_neg_xset, family = "s", span = 0.2)
 
 # QC_nofill=group(QC3,bw=1,mzwid=0.015,minfrac=.75)
-nofill_retcor_grp_neg_xset = group(retcor_grp_neg_xset, bw=1, mzwid=0.015, minfrac=.75)
+# nofill_retcor_grp_neg_xset = group(retcor_grp_neg_xset, bw = 1, mzwid = 0.015, minfrac = .75)
+nofill_retcor_grp_neg_xset = group(retcor_grp_neg_xset, bw = 10, mzwid = 0.05)
 
 # QC_fill=fillPeaks(QC_nofill,method='chrom')
-fill_retcor_grp_neg_xset = fillPeaks(nofill_retcor_grp_neg_xset, method='chrom')
+fill_retcor_grp_neg_xset = fillPeaks(nofill_retcor_grp_neg_xset, method = 'chrom')
 
 ## Organise into peak table with missing data
 # QCB=grabAlign(QC_nofill,batch='Batch_B',grp='QB')
-neg_qc_block1 = grabAlign(nofill_retcor_grp_neg_xset, batch='QC_neg_block1,', grp='block1neg')
+neg_qc_block1 = grabAlign(nofill_retcor_grp_neg_xset, batch = 'QC_neg_block1,', grp = 'block1neg')
 
 # QCF=grabAlign(QC_nofill,batch='Batch_F',grp='QF')
 # QCH=grabAlign(QC_nofill,batch='Batch_H',grp='QH')
