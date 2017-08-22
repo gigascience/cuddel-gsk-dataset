@@ -7,48 +7,6 @@ library(impute)
 library(ggfortify)
 library(batchCorr)
 
-# To see how to create a phenodata object
-library(Biobase)
-data(sample.ExpressionSet)
-head(pData(sample.ExpressionSet))
-     sex    type score  newColumn
-A Female Control  0.75 -0.3141766
-B   Male    Case  0.40  2.3844318
-C   Male Control  0.73  1.0936301
-D   Male    Case  0.42 -2.6438696
-E Female    Case  0.93 -0.3369824
-F   Male Control  0.22  0.6235963
-
-pData(sample.ExpressionSet)$newColumn = rnorm(ncol(sample.ExpressionSet))
-head(pData(sample.ExpressionSet))
-> colnames(exprs(sample.ExpressionSet))
- [1] "A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S"
-[20] "T" "U" "V" "W" "X" "Y" "Z"
-> head(exprs(sample.ExpressionSet))
-> head(exprs(sample.ExpressionSet))
-                       A         B        C        D        E       F        G
-AFFX-MurIL2_at  192.7420  85.75330 176.7570 135.5750 64.49390 76.3569 160.5050
-AFFX-MurIL10_at  97.1370 126.19600  77.9216  93.3713 24.39860 85.5088  98.9086
-AFFX-MurIL4_at   45.8192   8.83135  33.0632  28.7072  5.94492 28.2925  30.9694
-AFFX-MurFAS_at   22.5445   3.60093  14.6883  12.3397 36.86630 11.2568  23.0034
-AFFX-BioB-5_at   96.7875  30.43800  46.1271  70.9319 56.17440 42.6756  86.5156
-AFFX-BioB-M_at   89.0730  25.84610  57.2033  69.9766 49.58220 26.1262  75.0083
-
-# Therefore need to create a phenodata object like this
-					batch	grp
-GSK_neg_block1_09r
-GSK_neg_block1_10r
-GSK_neg_block1_16r
-GSK_neg_block1_21r
-GSK_neg_block1_26r
-GSK_neg_block1_31r
-
-
-# Then need to add DF when creating xcmsSet object i.e. xcmsSet(neg_files, step = 0.02, snthresh=3, mzdiff = 0.05)
-
-# Need to consider batch differences which might affect peaks in QCs due to the
-# 4 analytical blocks are removed by XCMS during peak alignment.
-
 ######################################
 # Read in metadata for data analysis #
 ######################################
@@ -58,10 +16,9 @@ meta_all <- read.csv("/home/peter/gsk/meta/meta_all.csv")
 
 # Use file_name_neg as rownames
 rownames(meta_all) <- meta_all$file_name_neg
-
 # Delete file_name_neg and file_name_pos columns
 meta_all$file_name_neg <- NULL
-meta_all$file_name_pos <-
+meta_all$file_name_pos <- NULL
 
 # Order files based on run order column
 meta_all <- meta_all[order(meta_all$order),]
@@ -84,6 +41,25 @@ neg_files <- unlist(lapply(rownames(meta_all), function(x)
   }
 ))
 
+# Slice data
+neg_qc_block1_filenames <- rownames(meta_all[ which(meta_all$block == "1" & meta_all$type == "QC"), ])
+neg_qc_block2_filenames <- rownames(meta_all[ which(meta_all$block == "2" & meta_all$type == "QC"), ])
+neg_qc_block3_filenames <- rownames(meta_all[ which(meta_all$block == "3" & meta_all$type == "QC"), ])
+neg_qc_block4_filenames <- rownames(meta_all[ which(meta_all$block == "3" & meta_all$type == "QC"), ])
+
+neg_sample_block1_filenames <- rownames(meta_all[ which(meta_all$block == "1" & meta_all$type == "Sample"), ])
+neg_sample_block2_filenames <- rownames(meta_all[ which(meta_all$block == "2" & meta_all$type == "Sample"), ])
+neg_sample_block3_filenames <- rownames(meta_all[ which(meta_all$block == "3" & meta_all$type == "Sample"), ])
+neg_sample_block4_filenames <- rownames(meta_all[ which(meta_all$block == "3" & meta_all$type == "Sample"), ])
+
+# Check
+length(neg_files)
+[1] 371
+all_files <- c(neg_qc_block1_filenames, neg_qc_block2_filenames, neg_qc_block3_filenames, neg_qc_block4_filenames)
+all_files <- c(all_files, neg_sample_block1_filenames, neg_sample_block2_filenames, neg_sample_block3_filenames, neg_sample_block4_filenames)
+length(all_files)
+[1] 371
+
 ########################
 # Apply XCMS onto data #
 ########################
@@ -92,31 +68,102 @@ neg_files <- unlist(lapply(rownames(meta_all), function(x)
 # This is compute intensive and will take time to complete!!
 neg_xset <- xcmsSet(neg_files, step = 0.02, snthresh = 3, mzdiff = 0.05)
 
-# Need to remove missing values in metadata otherwise XCMS group cmd fails
+# Need to remove missing values in metadata otherwise XCMS group command fails
 meta_all_no_na <- meta_all[, 1:11]
+# Create batch and grp columns for use in batchcorr
+meta_all_no_na$batch <- meta_all_no_na$block
+meta_all_no_na$grp <- meta_all_no_na$type
+
 # Add metadata to XCMS object
 phenoData(neg_xset) <- meta_all_no_na
 
 # Match peaks representing same analyte across samples
 grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
 
+# Perform retention time correction
 # QC3=retcor(QC2, family="s", span=0.2)
-retcor_grp_neg_xset = retcor(grp_neg_xset, family = "s", span = 0.2)
+retcor_neg_xset = retcor(grp_neg_xset, family = "s", span = 0.2)
+retcor_neg_xsa <- xsAnnotate(retcor_neg_xset)
+retcor_neg_peaklist <- getPeaklist(retcor_neg_xsa)
 
+# After rt correction, the initial grouping is invalid so need to re-group
 # QC_nofill=group(QC3,bw=1,mzwid=0.015,minfrac=.75)
-# nofill_retcor_grp_neg_xset = group(retcor_grp_neg_xset, bw = 1, mzwid = 0.015, minfrac = .75)
-nofill_retcor_grp_neg_xset = group(retcor_grp_neg_xset, bw = 10, mzwid = 0.05)
+nofill_neg_xset = group(retcor_neg_xset, bw = 10, mzwid = 0.05)
+nofill_neg_xsa <- xsAnnotate(nofill_neg_xset)
+nofill_neg_peaklist <- getPeaklist(nofill_neg_xsa)
 
+# Fill in missing peaks
 # QC_fill=fillPeaks(QC_nofill,method='chrom')
-fill_retcor_grp_neg_xset = fillPeaks(nofill_retcor_grp_neg_xset, method = 'chrom')
+fill_neg_xset = fillPeaks(nofill_neg_xset, method = 'chrom')
+fill_neg_xsa <- xsAnnotate(fill_neg_xset)
+fill_neg_peaklist <- getPeaklist(fill_neg_xsa)
 
 ## Organise into peak table with missing data
 # QCB=grabAlign(QC_nofill,batch='Batch_B',grp='QB')
-neg_qc_block1 = grabAlign(nofill_retcor_grp_neg_xset, batch = 'QC_neg_block1,', grp = 'block1neg')
-
+# RefB=grabAlign(QC_nofill,batch='Batch_B',grp='Ref')
 # QCF=grabAlign(QC_nofill,batch='Batch_F',grp='QF')
+# RefF=grabAlign(QC_nofill,batch='Batch_F',grp='Ref')
 # QCH=grabAlign(QC_nofill,batch='Batch_H',grp='QH')
+# RefH=grabAlign(QC_nofill,batch='Batch_H',grp='Ref')
 # PTnofill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
+nofill_block1_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block1_filenames]
+nofill_block1_samples = nofill_retcor_grp_neg_peaklist[,neg_sample_block1_filenames]
+nofill_block2_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block2_filenames]
+nofill_block2_samples = nofill_retcor_grp_neg_peaklist[,neg_sample_block2_filenames]
+nofill_block3_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block3_filenames]
+nofill_block3_samples = nofill_retcor_grp_neg_peaklist[,neg_sample_block3_filenames]
+nofill_block4_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block4_filenames]
+nofill_block4_samples = nofill_retcor_grp_neg_peaklist[,neg_sample_block4_filenames]
+PTnofill = cbind(nofill_block1_qc, nofill_block1_samples, nofill_block2_qc, nofill_block2_samples, nofill_block3_qc, nofill_block3_samples, nofill_block4_qc, nofill_block4_samples)
+
+## Organise into peaktable without missing data
+# QCB=grabAlign(QC_fill,batch='Batch_B',grp='QB')
+# RefB=grabAlign(QC_fill,batch='Batch_B',grp='Ref')
+# QCF=grabAlign(QC_fill,batch='Batch_F',grp='QF')
+# RefF=grabAlign(QC_fill,batch='Batch_F',grp='Ref')
+# QCH=grabAlign(QC_fill,batch='Batch_H',grp='QH')
+# RefH=grabAlign(QC_fill,batch='Batch_H',grp='Ref')
+# PTfill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
+fill_block1_qc = fill_retcor_grp_neg_peaklist[,neg_qc_block1_filenames]
+fill_block1_samples = fill_retcor_grp_neg_peaklist[,neg_sample_block1_filenames]
+fill_block2_qc = fill_retcor_grp_neg_peaklist[,neg_qc_block2_filenames]
+fill_block2_samples = fill_retcor_grp_neg_peaklist[,neg_sample_block2_filenames]
+fill_block3_qc = fill_retcor_grp_neg_peaklist[,neg_qc_block3_filenames]
+fill_block3_samples = fill_retcor_grp_neg_peaklist[,neg_sample_block3_filenames]
+fill_block4_qc = fill_retcor_grp_neg_peaklist[,neg_qc_block4_filenames]
+fill_block4_samples = fill_retcor_grp_neg_peaklist[,neg_sample_block4_filenames]
+PTfill = cbind(fill_block1_qc, fill_block1_samples, fill_block2_qc, fill_block2_samples, fill_block3_qc, fill_block3_samples, fill_block4_qc, fill_block4_samlsples)
+
+## Perform batch alignment
+# Extract peakinfo (i.e. m/z and rt of features)
+peakIn <- cbind(nofill_retcor_grp_neg_peaklist[,"mz"], nofill_retcor_grp_neg_peaklist[,"rt"])
+colnames(peakIn) <- c("mz", "rt")
+rownames_peakIn <- integer(0)
+for (i in 1:nrow(peakIn)) {
+  rownames_peakIn[i] <- paste("feature_", i, sep = "")
+}
+rownames(peakIn) <- rownames_peakIn
+
+# Create meta object
+batch <- c(rep('1', ncol(fill_block1_qc) + ncol(fill_block1_samples)), rep('2', ncol(fill_block2_qc) + ncol(fill_block2_samples)), rep('3', ncol(fill_block3_qc) + ncol(fill_block3_samples)), rep('4', ncol(fill_block4_qc) + ncol(fill_block4_samples)))
+grp <- c(rep('Q', ncol(fill_block1_qc)), rep('S', ncol(fill_block1_samples)), rep('Q', ncol(fill_block2_qc)), rep('S', ncol(fill_block2_samples)), rep('Q', ncol(fill_block3_qc)), rep('S', ncol(fill_block3_samples)), rep('Q', ncol(fill_block4_qc)), rep('S', ncol(fill_block4_samples)))
+meta <- cbind(batch, grp)
+
+# Flag presence/missingness on batch level
+bF <- batchFlag(t(PTnofill), meta, peakIn)
+# Find possible alignment candidates per sample type
+aIQ <- alignIndex(bF, grpType = 'Q', mzdiff = 0.002, rtdiff = 15, report = T, reportName = 'splits_aIQ')
+# Plot achieved alignments
+plotAlign(bF,aIQ,plotType='pdf',reportName='clustPlots_aIQ')
+# Perform alignment -> Peaktable
+bA=batchAlign(bF,aIQ,PTfill,meta)
+# Extract new peak table
+PT=bA$PTalign
+
+# Extract m/z and rt values
+
+
+
 
 # Create CAMERA object
 neg_xsa <- xsAnnotate(grp_neg_xset)
@@ -154,7 +201,6 @@ neg_qc_files <- apply(meta_all, 1, get_neg_qc_file_paths, output = qc_files)
 neg_qc_files <- neg_qc_files [! neg_qc_files %in% "Sample"]
 # Sort negative QC filenames
 neg_qc_files <- naturalsort(neg_qc_files)
-
 
 # Combine neg_peaklist with sample_ID metadata from meta file
 meta <- read.csv("/home/peter/gsk/meta/meta.csv")
