@@ -60,6 +60,15 @@ all_files <- c(all_files, neg_sample_block1_filenames, neg_sample_block2_filenam
 length(all_files)
 [1] 371
 
+# Create meta containing batch and grp information
+sample_names <- substring(neg_files, 46)
+sample_names <- gsub(".cdf", "", sample_names)
+batch <- meta_all[sample_names, "block"]
+batch <- paste("block", batch, sep = "")
+grp <- meta_all[sample_names, "type"]
+grp <- unlist(lapply(grp, as.character))
+meta <- cbind(batch, grp)
+
 ########################
 # Apply XCMS onto data #
 ########################
@@ -89,6 +98,7 @@ retcor_neg_peaklist <- getPeaklist(retcor_neg_xsa)
 # After rt correction, the initial grouping is invalid so need to re-group
 # QC_nofill=group(QC3,bw=1,mzwid=0.015,minfrac=.75)
 nofill_neg_xset = group(retcor_neg_xset, bw = 10, mzwid = 0.05)
+phenoData(nofill_neg_xset) <- meta
 nofill_neg_xsa <- xsAnnotate(nofill_neg_xset)
 nofill_neg_peaklist <- getPeaklist(nofill_neg_xsa)
 
@@ -106,6 +116,16 @@ fill_neg_peaklist <- getPeaklist(fill_neg_xsa)
 # QCH=grabAlign(QC_nofill,batch='Batch_H',grp='QH')
 # RefH=grabAlign(QC_nofill,batch='Batch_H',grp='Ref')
 # PTnofill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
+block1_QC <- grabAlign(nofill_neg_xset, batch='block1', grp='QC')
+block1_sample <- grabAlign(nofill_neg_xset, batch='block1', grp='Sample')
+block2_QC <- grabAlign(nofill_neg_xset, batch='block2', grp='QC')
+block2_sample <- grabAlign(nofill_neg_xset, batch='block2', grp='Sample')
+block3_QC <- grabAlign(nofill_neg_xset, batch='block3', grp='QC')
+block3_sample <- grabAlign(nofill_neg_xset, batch='block3', grp='Sample')
+block4_QC <- grabAlign(nofill_neg_xset, batch='block4', grp='QC')
+block4_sample <- grabAlign(nofill_neg_xset, batch='block4', grp='Sample')
+PTnofill <- rbind(block1_QC, block1_sample, block2_QC, block2_sample, block3_QC, block3_sample, block4_QC, block4_sample)
+
 nofill_block1_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block1_filenames]
 nofill_block1_samples = nofill_retcor_grp_neg_peaklist[,neg_sample_block1_filenames]
 nofill_block2_qc = nofill_retcor_grp_neg_peaklist[,neg_qc_block2_filenames]
