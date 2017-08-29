@@ -1,0 +1,34 @@
+{
+  "name": "development",
+  "default_attributes": {
+    "cuddel": {
+	    "vagrant_dir": "/vagrant",
+		  "user1": "",
+		  "user1_name": "",
+		  "user1_email": "",
+		  "user1_password": "",
+		  "user1_public_key": ""
+    },
+    "aws": {
+      "aws_access_key_id": "",
+      "aws_secret_access_key": "",
+      "aws_default_region": "ap-southeast-1",
+      "aws_security_groups": "",
+      "aws_elastic_ip": ""
+    }
+  },
+  "nginx": {
+    "log_dir": "/var/log/nginx"
+  },
+  "iptables": {
+    "iptables_sysconfig": {
+      "IPTABLES_SAVE_ON_STOP": "yes"
+    }
+  },
+  "ssh": {
+    "enable_password": "no"
+  },
+"json_class": "Chef::Environment",
+"description": "Test environment for deploying onto local Vagrant VMs",
+"chef_type": "environment"
+}
