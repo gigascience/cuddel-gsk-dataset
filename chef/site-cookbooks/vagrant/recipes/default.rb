@@ -8,11 +8,12 @@
 #
 
 
-include_recipe "cuddle"
+include_recipe "cuddel"
 
 log 'message' do
     message 'Deploying CUDDEL server'
     level :info
+end
 
 ['vim', 'tree'].each do |pkg|
     package pkg
