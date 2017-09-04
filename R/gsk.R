@@ -5,6 +5,7 @@ library(matrixStats)
 library(specmine)
 library(impute)
 library(ggfortify)
+library(metaX)
 
 # Need to consider batch differences which might affect peaks in QCs due to the
 # 4 analytical blocks are removed by XCMS during peak alignment.
@@ -456,3 +457,56 @@ write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.nam
 pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape = 'pca_meta_qc_block', colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
 ggsave("unprocessed_neg_qc_sample_pca.png")
+
+#######################################################################
+# Use metaX to perform data normalisation to correct within batch and #
+# batch-to-batch variation                                            #
+#######################################################################
+
+# Use this data
+ncol(rsd_knn_qc_neg)
+[1] 87
+length(colnames(rsd_knn_qc_neg))
+[1] 87
+# Remove not required columns
+test = subset(rsd_knn_qc_neg, select = -c(feature_vector_means, feature_vector_standard_deviations, feature_vector_rsds))
+# Move rownames into first column
+test <- cbind(rownames(test), test)
+# Check
+head(test[,1:4])
+# Add colname for first column
+col_names <- c("name", colnames(test)[-1])
+colnames(test) <- col_names
+# Reformat row names
+rownames(test) <- rep(1:nrow(test))
+# Save as file and reload again
+write.table(test, file = "test.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+rawPeaks <- read.table(file = "test.tab", sep="\t")
+
+# Create sample list file
+## sample batch class order
+## 1 batch01_QC01 1  <NA>     1
+## 2 batch01_QC02 1  <NA>     2
+sampleListFile <- cbind(rownames(meta_all), meta_all$block, meta_all$Regimen, meta_all$order)
+colnames(sampleListFile) <- c("sample", "batch", "class", "order")
+# Save as file and reload again
+write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+sampleListFile <- read.table(file = "sampleListFile.tab", sep="\t")
+
+# Do normalisation
+para <- new("metaXpara")
+pfile <- "/home/peter/gsk/raw/esi_neg/netcdf/test.tab"
+sfile <- "/home/peter/gsk/raw/esi_neg/netcdf/sampleListFile.tab"
+rawPeaks(para) <- read.delim(pfile, check.names = FALSE)
+sampleListFile(para) <- sfile
+para <- reSetPeaksData(para)
+# para <- missingValueImpute(para)
+res <- doQCRLSC(para, cpu=1)
+plotQCRLSC(res$metaXpara)
+
+# Get peak data and do PCA
+peaksData <- para@peaksData
+
+
+
+
