@@ -463,25 +463,21 @@ ggsave("unprocessed_neg_qc_sample_pca.png")
 # batch-to-batch variation                                            #
 #######################################################################
 
-# Use this data
-ncol(rsd_knn_qc_neg)
-[1] 87
-length(colnames(rsd_knn_qc_neg))
-[1] 87
+# Prepare data for signal correction
 # Remove not required columns
-test = subset(rsd_knn_qc_neg, select = -c(feature_vector_means, feature_vector_standard_deviations, feature_vector_rsds))
+signal_correction_data = subset(rsd_knn_qc_neg, select = -c(feature_vector_means, feature_vector_standard_deviations, feature_vector_rsds))
 # Move rownames into first column
-test <- cbind(rownames(test), test)
+signal_correction_data <- cbind(rownames(signal_correction_data), signal_correction_data)
 # Check
-head(test[,1:4])
+head(signal_correction_data[,1:4])
 # Add colname for first column
-col_names <- c("name", colnames(test)[-1])
-colnames(test) <- col_names
+col_names <- c("name", colnames(signal_correction_data)[-1])
+colnames(signal_correction_data) <- col_names
 # Reformat row names
-rownames(test) <- rep(1:nrow(test))
+rownames(signal_correction_data) <- rep(1:nrow(signal_correction_data))
 # Save as file and reload again
-write.table(test, file = "test.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
-rawPeaks <- read.table(file = "test.tab", sep="\t")
+write.table(signal_correction_data, file = "signal_correction_data.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+signal_correction_data <- read.table(file = "signal_correction_data.tab", sep="\t")
 
 # Create sample list file
 ## sample batch class order
@@ -495,7 +491,7 @@ sampleListFile <- read.table(file = "sampleListFile.tab", sep="\t")
 
 # Do normalisation
 para <- new("metaXpara")
-pfile <- "/home/peter/gsk/raw/esi_neg/netcdf/test.tab"
+pfile <- "/home/peter/gsk/raw/esi_neg/netcdf/signal_correction_data.tab"
 sfile <- "/home/peter/gsk/raw/esi_neg/netcdf/sampleListFile.tab"
 rawPeaks(para) <- read.delim(pfile, check.names = FALSE)
 sampleListFile(para) <- sfile
@@ -504,9 +500,49 @@ para <- reSetPeaksData(para)
 res <- doQCRLSC(para, cpu=1)
 plotQCRLSC(res$metaXpara)
 
-# Get peak data and do PCA
-peaksData <- para@peaksData
+
+#######################################################
+# Get peak data and do PCA to check signal correction #
+#######################################################
+> head(rsd_knn_qc_neg[,1:4])
+GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r GSK_neg_block1_21r
+2          2214161.07         2213167.30         2200922.28         2229604.08
+11           80404.29           90185.92           80860.06           70636.49
+12         1052155.89         1013478.90          968455.80          955786.38
+46           95204.15           95296.60           96498.84           76137.69
+47        37436017.50        36930624.08        37326859.84        34001468.40
+51           47954.21           53991.18           53033.27           34404.22
+
+> head(peak_data)
+ID             sample       value batch class order
+1  2 GSK_neg_block1_09r  2214161.07     1    NA     1
+2 11 GSK_neg_block1_09r    80404.29     1    NA     1
+3 12 GSK_neg_block1_09r  1052155.89     1    NA     1
+4 46 GSK_neg_block1_09r    95204.15     1    NA     1
+5 47 GSK_neg_block1_09r 37436017.50     1    NA     1
+6 51 GSK_neg_block1_09r    47954.21     1    NA     1
 
 
+peak_data <- para@peaksData
+test <- getPeaksTable(para)
+
+
+
+
+
+
+#################################
+# Use metaXpipe to analyse data #
+#################################
+
+para <- new("metaXpara")
+pfile <- "/home/peter/gsk/raw/esi_neg/netcdf/test.tab"
+sfile <- "/home/peter/gsk/raw/esi_neg/netcdf/sampleListFile.tab"
+rawPeaks(para) <- read.delim(pfile,check.names = FALSE)
+sampleListFile(para) <- sfile
+ratioPairs(para) <- "A:B;C:D;A:C;B:D"
+plsdaPara <- new("plsDAPara")
+para@outdir <- "output"
+p <- metaXpipe(para,plsdaPara=plsdaPara,cvFilter=0.3,remveOutlier = TRUE, outTol = 1.2, doQA = TRUE, doROC = TRUE, qcsc = 1, nor.method = "pqn", pclean = TRUE, t = 1, scale = "uv",)
 
 
