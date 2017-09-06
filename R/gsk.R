@@ -7,6 +7,9 @@ library(impute)
 library(ggfortify)
 library(metaX)
 
+# Let R know where the GSK data set is located
+datadir = "/home/peter/"
+
 # Need to consider batch differences which might affect peaks in QCs due to the
 # 4 analytical blocks are removed by XCMS during peak alignment.
 
@@ -15,13 +18,13 @@ library(metaX)
 ######################################
 
 # Read metadata file
-meta_all <- read.csv("/home/peter/gsk/meta/meta_all.csv")
+meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep =""))
 # Extract QCs
 qc_meta_all <- subset(meta_all, type == "QC")
 # Sort QCs by block then order
 qc_meta_all <- qc_meta_all [ with(qc_meta_all, order(block, order)), ]
 # Create file paths
-neg_dir = "/home/peter/gsk/raw/esi_neg/netcdf"
+neg_dir = paste(datadir, "/home/peter/gsk/raw/esi_neg/netcdf", sep ="")
 get_neg_file_paths <- function(x, output) {
   file_name_neg <- x[3]
   type <- x[10]
@@ -41,17 +44,21 @@ get_neg_file_paths <- function(x, output) {
   }
 }
 
-neg_files <- apply(meta_all, 1, get_neg_file_paths, output = files)
-# Sort negative QC filenames
-neg_files <- naturalsort(neg_files)
+# Get sorted negative file paths
+neg_file_paths <- apply(meta_all, 1, get_neg_file_paths, output = files)
+neg_file_paths <- naturalsort(neg_files)
+# Get sorted negative file names
+neg_filenames <- meta_all[, "file_name_neg"]
+neg_filenames <- naturalsort(neg_filenames)
+neg_filenames <- as.character(neg_filenames)
 
-########################
-# Apply XCMS onto data #
-########################
+######################################
+# Apply XCMS onto QC and sample data #
+######################################
 
 # Create xcmsSet object using findPeaks parameters from Eva's thesis
 # This is compute intensive and will take time to complete!!
-neg_xset <- xcmsSet(neg_files, step = 0.02, snthresh=3, mzdiff = 0.05)
+neg_xset <- xcmsSet(neg_filenames, step = 0.02, snthresh=3, mzdiff = 0.05)
 
 # Match peaks representing same analyte across samples
 grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
@@ -65,38 +72,274 @@ neg_peaklist$idx <- seq.int(nrow(neg_peaklist))
 # Move index to left hand side of data frame
 neg_peaklist <- neg_peaklist[,c(ncol(neg_peaklist),1:(ncol(neg_peaklist)-1))]
 
-# Get list of neg QC filenames
-get_neg_qc_file_paths <- function(x, output) {
-  file_name_neg <- x[3]
-  type <- x[10]
-  qc_meta_all <- x[12]
-  block <- x[13]
-  if (type == "QC" & block == "1") {
-    qc_file <- paste(neg_dir, "/block1neg/", file_name_neg, ".cdf", sep = "")
+##############################################
+# Do PCA on negative QC and sample XCMS data #
+##############################################
+
+# Prepare neg_peaklist data for PCA
+pca_data <- neg_peaklist[, neg_filenames]
+
+# Prepare block information for PCA
+block <- integer(0)
+qc_sample_names <- colnames(pca_data)
+for (i in 1:length(qc_sample_names)) {
+  if (grepl("block1", qc_sample_names[i]) == 1) {
+    block[i] <- "block1"
   }
-  else if (type == "QC" & block == "2") {
-    qc_file <- paste(neg_dir, "/block2neg/", file_name_neg, ".cdf", sep = "")
+  else if (grepl("block2", qc_sample_names[i]) == 1) {
+    block[i] <- "block2"
   }
-  else if (type == "QC" & block == "3") {
-    qc_file <- paste(neg_dir, "/block3neg/", file_name_neg, ".cdf", sep = "")
+  else if (grepl("block3", qc_sample_names[i]) == 1) {
+    block[i] <- "block3"
   }
-  else if (type == "QC" & block == "4") {
-    qc_file <- paste(neg_dir, "/block4neg/", file_name_neg, ".cdf", sep = "")
-  }
-  else {
-    qc_file <- "Sample"
+  else if (grepl("block4", qc_sample_names[i]) == 1) {
+    block[i] <- "block4"
   }
 }
-neg_qc_files <- apply(meta_all, 1, get_neg_qc_file_paths, output = qc_files)
-# Remove "Sample" values in character vector
-neg_qc_files <- neg_qc_files [! neg_qc_files %in% "Sample"]
-# Sort negative QC filenames
-neg_qc_files <- naturalsort(neg_qc_files)
 
-# Combine neg_peaklist with sample_ID metadata from meta file
-meta <- read.csv("/home/peter/gsk/meta/meta.csv")
-neg_qc_fnames <- substr(neg_qc_files, 46, 80)
-neg_qc_fnames <- substr(neg_qc_fnames, 1, nchar(neg_qc_fnames)-4)
+# Prepare QC sample information for PCA
+pca_meta_qc_sample <- integer(0)
+for (i in 1:length(qc_sample_names)) {
+  if (meta_all[which(meta_all[,"file_name_neg"]==qc_sample_names[i]), "type"] == 'QC') {
+    pca_meta_qc_sample[i] <- "QC"
+  }
+  else {
+    pca_meta_qc_sample[i] <- "Sample"
+  }
+}
+
+# Transpose data
+pca_data <- t(pca_data)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, block, pca_meta_qc_sample)
+# PCA cannot be performed on data with missing values
+# Remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape= "block", colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_pca.png")
+
+#######################################################################
+# Use metaX to perform data normalisation to correct within batch and #
+# batch-to-batch variation                                            #
+#######################################################################
+
+# Prepare data for signal correction
+# Needs to look like this:
+> head(signal_correction_data[,1:4])
+name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
+1    2         2214161.07         2213167.30         2200922.28
+2   11           80404.29           90185.92           80860.06
+3   12         1052155.89         1013478.90          968455.80
+4   46           95204.15           95296.60           96498.84
+5   47        37436017.50        36930624.08        37326859.84
+6   51           47954.21           53991.18           53033.27
+
+# Remove not required columns
+signal_corr_data <- subset(neg_peaklist, select = -c(1:12, 384:386))
+
+# Remove peak rows if it contains missing values
+signal_corr_data <- signal_corr_data[ , colSums(is.na(signal_corr_data)) == 0]
+signal_corr_data <- na.omit(signal_corr_data)
+
+# Move rownames into first column
+signal_corr_data <- cbind(rownames(signal_corr_data), signal_corr_data)
+# Check
+head(signal_corr_data[,1:4])
+# Add colname for first column
+col_names <- c("name", colnames(signal_corr_data)[-1])
+colnames(signal_corr_data) <- col_names
+# Reformat row names
+rownames(signal_corr_data) <- rep(1:nrow(signal_corr_data))
+# Save as file and reload again
+write.table(signal_corr_data, file = "signal_corr_data.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+signal_corr_data <- read.table(file = "signal_corr_data.tab", sep="\t")
+
+# Create sample list file
+## sample batch class order
+## 1 batch01_QC01 1  <NA>     1
+## 2 batch01_QC02 1  <NA>     2
+sampleListFile <- cbind(rownames(meta_all), meta_all$block, meta_all$Regimen, meta_all$order)
+colnames(sampleListFile) <- c("sample", "batch", "class", "order")
+# Save as file and reload again
+write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+sampleListFile <- read.table(file = "sampleListFile.tab", sep="\t")
+
+# Do normalisation
+para <- new("metaXpara")
+pfile <- "/home/peter/gsk/raw/esi_neg/netcdf/signal_corr_data.tab"
+sfile <- "/home/peter/gsk/raw/esi_neg/netcdf/sampleListFile.tab"
+rawPeaks(para) <- read.delim(pfile, check.names = FALSE)
+sampleListFile(para) <- sfile
+para <- reSetPeaksData(para)
+para <- missingValueImpute(para)
+res <- doQCRLSC(para, cpu=1)
+plotQCRLSC(res$metaXpara)
+
+
+#######################################################
+# Get peak data and do PCA to check signal correction #
+#######################################################
+> head(rsd_knn_qc_neg[,1:4])
+GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r GSK_neg_block1_21r
+2          2214161.07         2213167.30         2200922.28         2229604.08
+11           80404.29           90185.92           80860.06           70636.49
+12         1052155.89         1013478.90          968455.80          955786.38
+46           95204.15           95296.60           96498.84           76137.69
+47        37436017.50        36930624.08        37326859.84        34001468.40
+51           47954.21           53991.18           53033.27           34404.22
+
+> head(peak_data)
+ID             sample       value batch class order
+1  2 GSK_neg_block1_09r  2214161.07     1    NA     1
+2 11 GSK_neg_block1_09r    80404.29     1    NA     1
+3 12 GSK_neg_block1_09r  1052155.89     1    NA     1
+4 46 GSK_neg_block1_09r    95204.15     1    NA     1
+5 47 GSK_neg_block1_09r 37436017.50     1    NA     1
+6 51 GSK_neg_block1_09r    47954.21     1    NA     1
+
+peak_data <- para@peaksData
+# Re-format data so that QCs and samples are lined up column by column
+# if rowname = sample name 1 then copy to column 1 at the end
+names <- peak_data[, "sample"]
+names <- unique(names)
+names <- as.character(names)
+subset(peak_data, sample == "GSK_neg_block1_09r")
+peak_data[ which(peak_data$sample=='GSK_neg_block1_09r'), "value"]
+
+# Create empty matrix
+data <- matrix(, nrow = 505, ncol = length(names))
+
+for (i in 1:length(names)) {
+col_data <- peak_data[ which(peak_data$sample==names[i]), "value"]
+data[, i] <- col_data
+}
+colnames(data) <- names
+
+# Create block metadata information for PCA display
+block <- integer(0)
+for (i in 1:length(names)) {
+if (grepl("block1", names[i]) == 1) {
+block[i] <- "block1"
+}
+else if (grepl("block2", names[i]) == 1) {
+block[i] <- "block2"
+}
+else if (grepl("block3", names[i]) == 1) {
+block[i] <- "block3"
+}
+else if (grepl("block4", names[i]) == 1) {
+block[i] <- "block4"
+}
+}
+
+# Create vector containing QC and sample information
+pca_meta_qc <- integer(0)
+for (i in 1:length(names)) {
+if (meta_all[which(rownames(meta_all)==names[i]), "type"] == 'QC') {
+pca_meta_qc_sample[i] <- "QC"
+}
+else {
+pca_meta_qc_sample[i] <- "Sample"
+}
+}
+
+write.table(data, file = "data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "data.csv", sep=",")
+autoplot(prcomp(pca_data), data = pca_data, shape = 'block', main = 'PCA on signal corrected negative QC data')
+ggsave("signal_corr_neg_qc_pca.png")
+
+
+
+
+
+
+
+
+
+#################
+
+# Create vector containing QC and sample information
+pca_meta_qc_sample <- integer(0)
+pca_meta_qc_sample[1:length(neg_qc_fnames)] <- "QC"
+pca_meta_qc_sample[length(neg_qc_fnames)+1:length(neg_sample_fnames)] <- "Sample"
+
+# Create vector containing QC, sample and block information
+pca_meta_qc_sample_block <- integer(0)
+colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
+for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
+if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "QC_block1"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "QC_block2"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "QC_block3"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "QC_block4"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "Sample_block1"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "Sample_block2"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "Sample_block3"
+}
+else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_sample_block[i] <- "Sample_block4"
+}
+}
+
+# Create vector containing block numbers for labelling shapes
+pca_meta_qc_block <- integer(0)
+colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
+for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
+if (grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_block[i] <- "block1"
+}
+else if (grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_block[i] <- "block2"
+}
+else if (grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_block[i] <- "block3"
+}
+else if (grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
+pca_meta_qc_block[i] <- "block4"
+}
+}
+
+# Transpose data
+pca_data <- t(neg_qc_sample_peaklist)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, pca_meta_qc_sample)
+# PCA cannot be performed on data with missing values
+# Remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_pca.png")
+
+# Using different shapes and colours for labelling analytical blocks, QCs and samples
+# Transpose data
+pca_data <- t(neg_qc_sample_peaklist)
+# Add block information to PCA data
+pca_data <- cbind(pca_data, pca_meta_qc_sample, pca_meta_qc_block)
+# PCA cannot be performed on data with missing values
+# Remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape = 'pca_meta_qc_block', colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
+ggsave("unprocessed_neg_qc_sample_pca.png")
 
 ########################
 # Prepare data for PCA #
@@ -366,98 +609,6 @@ neg_sample_files <- naturalsort(neg_sample_files)
 neg_sample_fnames <- substr(neg_sample_files, 46, 80)
 neg_sample_fnames <- substr(neg_sample_fnames, 1, nchar(neg_sample_fnames)-4)
 
-#####################################################
-# Prepare negative QC and sample data for joint PCA #
-#####################################################
-
-# Combine QC and sample filenames
-neg_fnames <- c(neg_qc_fnames, neg_sample_fnames)
-# Create matrix containing QC and sample peaklists
-neg_qc_sample_peaklist <- neg_peaklist[neg_fnames]
-
-#################################################
-# Do joint PCA to check negative peak list data #
-#################################################
-# Create vector containing QC and sample information
-pca_meta_qc_sample <- integer(0)
-pca_meta_qc_sample[1:length(neg_qc_fnames)] <- "QC"
-pca_meta_qc_sample[length(neg_qc_fnames)+1:length(neg_sample_fnames)] <- "Sample"
-
-# Create vector containing QC, sample and block information
-pca_meta_qc_sample_block <- integer(0)
-colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
-for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
-  if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
-  	pca_meta_qc_sample_block[i] <- "QC_block1"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
-    pca_meta_qc_sample_block[i] <- "QC_block2"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
-      pca_meta_qc_sample_block[i] <- "QC_block3"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_qc_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
-	pca_meta_qc_sample_block[i] <- "QC_block4"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
-	pca_meta_qc_sample_block[i] <- "Sample_block1"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
-  	pca_meta_qc_sample_block[i] <- "Sample_block2"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
-	pca_meta_qc_sample_block[i] <- "Sample_block3"
-  }
-  else if (colnames_neg_qc_sample_peaklist[i] %in% neg_sample_fnames && grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
-  	pca_meta_qc_sample_block[i] <- "Sample_block4"
-  }
-}
-
-# Create vector containing block numbers for labelling shapes
-pca_meta_qc_block <- integer(0)
-colnames_neg_qc_sample_peaklist <- colnames(neg_qc_sample_peaklist)
-for (i in 1:length(colnames_neg_qc_sample_peaklist)) {
-  if (grepl("block1", colnames_neg_qc_sample_peaklist[i]) == 1) {
-  	pca_meta_qc_block[i] <- "block1"
-  }
-  else if (grepl("block2", colnames_neg_qc_sample_peaklist[i]) == 1) {
-    pca_meta_qc_block[i] <- "block2"
-  }
-  else if (grepl("block3", colnames_neg_qc_sample_peaklist[i]) == 1) {
-      pca_meta_qc_block[i] <- "block3"
-  }
-  else if (grepl("block4", colnames_neg_qc_sample_peaklist[i]) == 1) {
-	pca_meta_qc_block[i] <- "block4"
-  }
-}
-
-# Transpose data
-pca_data <- t(neg_qc_sample_peaklist)
-# Add block information to PCA data
-pca_data <- cbind(pca_data, pca_meta_qc_sample)
-# PCA cannot be performed on data with missing values
-# Remove peak rows if it contains missing values
-pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
-
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
-ggsave("unprocessed_neg_qc_sample_pca.png")
-
-# Using different shapes and colours for labelling analytical blocks, QCs and samples
-# Transpose data
-pca_data <- t(neg_qc_sample_peaklist)
-# Add block information to PCA data
-pca_data <- cbind(pca_data, pca_meta_qc_sample, pca_meta_qc_block)
-# PCA cannot be performed on data with missing values
-# Remove peak rows if it contains missing values
-pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
-
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape = 'pca_meta_qc_block', colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
-ggsave("unprocessed_neg_qc_sample_pca.png")
-
 #######################################################################
 # Use metaX to perform data normalisation to correct within batch and #
 # batch-to-batch variation                                            #
@@ -522,12 +673,56 @@ ID             sample       value batch class order
 5 47 GSK_neg_block1_09r 37436017.50     1    NA     1
 6 51 GSK_neg_block1_09r    47954.21     1    NA     1
 
-
 peak_data <- para@peaksData
-test <- getPeaksTable(para)
+# Re-format data so that QCs and samples are lined up column by column
+# if rowname = sample name 1 then copy to column 1 at the end
+names <- peak_data[, "sample"]
+names <- unique(names)
+names <- as.character(names)
+subset(peak_data, sample == "GSK_neg_block1_09r")
+peak_data[ which(peak_data$sample=='GSK_neg_block1_09r'), "value"]
 
+# Create empty matrix
+data <- matrix(, nrow = 505, ncol = length(names))
 
+for (i in 1:length(names)) {
+  col_data <- peak_data[ which(peak_data$sample==names[i]), "value"]
+  data[, i] <- col_data
+}
+colnames(data) <- names
 
+# Create block metadata information for PCA display
+block <- integer(0)
+for (i in 1:length(names)) {
+  if (grepl("block1", names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+
+# Create vector containing QC and sample information
+pca_meta_qc <- integer(0)
+for (i in 1:length(names)) {
+  if (meta_all[which(rownames(meta_all)==names[i]), "type"] == 'QC') {
+    pca_meta_qc_sample[i] <- "QC"
+  }
+  else {
+    pca_meta_qc_sample[i] <- "Sample"
+  }
+}
+
+write.table(data, file = "data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "data.csv", sep=",")
+autoplot(prcomp(pca_data), data = pca_data, shape = 'block', main = 'PCA on signal corrected negative QC data')
+ggsave("signal_corr_neg_qc_pca.png")
 
 
 
