@@ -1,64 +1,68 @@
+# When starting R, the error message appears:
+Warning messages:
+1: In rgl.init(initValue, onlyNULL) : RGL: unable to open X11 display
+2: 'rgl_init' failed, running with rgl.useNULL = TRUE
+
 library(xcms)
 library(CAMERA)
 library(naturalsort)
 library(matrixStats)
-library(specmine)
+# library(specmine)
 library(impute)
 library(ggfortify)
 library(metaX)
 
-# Let R know where the GSK data set is located
+# Let R know where GSK data set is located
 datadir = "/home/peter/"
-
-# Need to consider batch differences which might affect peaks in QCs due to the
-# 4 analytical blocks are removed by XCMS during peak alignment.
 
 ######################################
 # Read in metadata for data analysis #
 ######################################
 
-# Read metadata file
+# Read metadata files
+meta <- read.csv(paste(datadir, "gsk/meta/meta.csv", sep =""))
 meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep =""))
+# Sort by file name neg
+meta <- meta[naturalorder(meta$file_name_neg),]
+meta_all <- meta_all[naturalorder(meta_all$file_name_neg),]
+
 # Extract QCs
-qc_meta_all <- subset(meta_all, type == "QC")
+#qc_meta_all <- subset(meta_all, type == "QC")
 # Sort QCs by block then order
-qc_meta_all <- qc_meta_all [ with(qc_meta_all, order(block, order)), ]
-# Create file paths
-neg_dir = paste(datadir, "/home/peter/gsk/raw/esi_neg/netcdf", sep ="")
-get_neg_file_paths <- function(x, output) {
-  file_name_neg <- x[3]
-  type <- x[10]
-  qc <- x[12]
-  block <- x[13]
-  if (block == "1") {
-    file <- paste(neg_dir, "/block1neg/", file_name_neg, ".cdf", sep = "")
+#qc_meta_all <- qc_meta_all [ with(qc_meta_all, order(block, order)), ]
+
+# Create file paths for negative files
+neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep ="")
+file_name_neg <- meta_all[,"file_name_neg"]
+file_name_neg <- as.character(file_name_neg)
+neg_file_paths <- character()
+block <- meta_all[,"block"]
+for (i in 1:length(file_name_neg)) {
+  if (block[i] == 1) {
+    neg_file_path <- paste(neg_dir, "/block1neg/", file_name_neg[i], ".cdf", sep = "")
+    neg_file_paths[i] <- neg_file_path
   }
-  else if (block == "2") {
-    file <- paste(neg_dir, "/block2neg/", file_name_neg, ".cdf", sep = "")
+  else if (block[i] == 2) {
+    neg_file_path <- paste(neg_dir, "/block2neg/", file_name_neg[i], ".cdf", sep = "")
+    neg_file_paths[i] <- neg_file_path
   }
-  else if (block == "3") {
-    file <- paste(neg_dir, "/block3neg/", file_name_neg, ".cdf", sep = "")
+  else if (block[i] == 3) {
+    neg_file_path <- paste(neg_dir, "/block3neg/", file_name_neg[i], ".cdf", sep = "")
+    neg_file_paths[i] <- neg_file_path
   }
-  else if (block == "4") {
-    file <- paste(neg_dir, "/block4neg/", file_name_neg, ".cdf", sep = "")
+  else if (block[i] == 4) {
+    neg_file_path <- paste(neg_dir, "/block4neg/", file_name_neg[i], ".cdf", sep = "")
+    neg_file_paths[i] <- neg_file_path
   }
 }
-
-# Get sorted negative file paths
-neg_file_paths <- apply(meta_all, 1, get_neg_file_paths, output = files)
-neg_file_paths <- naturalsort(neg_files)
-# Get sorted negative file names
-neg_filenames <- meta_all[, "file_name_neg"]
-neg_filenames <- naturalsort(neg_filenames)
-neg_filenames <- as.character(neg_filenames)
 
 ######################################
 # Apply XCMS onto QC and sample data #
 ######################################
 
 # Create xcmsSet object using findPeaks parameters from Eva's thesis
-# This is compute intensive and will take time to complete!!
-neg_xset <- xcmsSet(neg_filenames, step = 0.02, snthresh=3, mzdiff = 0.05)
+# This is compute intensive and takes time to complete!!
+neg_xset <- xcmsSet(neg_file_paths, step = 0.02, snthresh=3, mzdiff = 0.05)
 
 # Match peaks representing same analyte across samples
 grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
@@ -67,19 +71,19 @@ grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
 neg_xsa <- xsAnnotate(grp_neg_xset)
 # Get peaklist
 neg_peaklist <- getPeaklist(neg_xsa)
-# Add numeric ID index into negative peaklist to keep track of peaks during data pre-treatment
+# Add numeric index to negative peaklist to keep track of peaks during data pre-treatment
 neg_peaklist$idx <- seq.int(nrow(neg_peaklist))
 # Move index to left hand side of data frame
-neg_peaklist <- neg_peaklist[,c(ncol(neg_peaklist),1:(ncol(neg_peaklist)-1))]
+neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 
-##############################################
-# Do PCA on negative QC and sample XCMS data #
-##############################################
+#####################################
+# Do PCA on negative QC and samples #
+#####################################
 
-# Prepare neg_peaklist data for PCA
+# Prepare neg_peaklist data
 pca_data <- neg_peaklist[, neg_filenames]
 
-# Prepare block information for PCA
+# Prepare block information for labelling data points
 block <- integer(0)
 qc_sample_names <- colnames(pca_data)
 for (i in 1:length(qc_sample_names)) {
@@ -97,7 +101,7 @@ for (i in 1:length(qc_sample_names)) {
   }
 }
 
-# Prepare QC sample information for PCA
+# Prepare QC sample information for labelling data points
 pca_meta_qc_sample <- integer(0)
 for (i in 1:length(qc_sample_names)) {
   if (meta_all[which(meta_all[,"file_name_neg"]==qc_sample_names[i]), "type"] == 'QC') {
@@ -125,17 +129,19 @@ ggsave("unprocessed_neg_qc_sample_pca.png")
 # Use metaX to perform data normalisation to correct within batch and #
 # batch-to-batch variation                                            #
 #######################################################################
+# Need to consider batch differences which might affect peaks in QCs due to the
+# 4 analytical blocks are removed by XCMS during peak alignment.
 
 # Prepare data for signal correction
 # Needs to look like this:
 > head(signal_correction_data[,1:4])
-name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
-1    2         2214161.07         2213167.30         2200922.28
-2   11           80404.29           90185.92           80860.06
-3   12         1052155.89         1013478.90          968455.80
-4   46           95204.15           95296.60           96498.84
-5   47        37436017.50        36930624.08        37326859.84
-6   51           47954.21           53991.18           53033.27
+name batch01_QC01 batch01_QC02 batch01_QC03
+1  78.02055      14023.0      13071.0      15270.0
+2 452.00345      22455.0      10737.0      27397.0
+3 138.96337       6635.4       8062.3       6294.6
+4  73.53838      26493.0      26141.0      25944.0
+5 385.12885      57625.0      56964.0      59045.0
+6 237.02815     105490.0      90166.0      92315.0
 
 # Remove not required columns
 signal_corr_data <- subset(neg_peaklist, select = -c(1:12, 384:386))
@@ -161,6 +167,10 @@ signal_corr_data <- read.table(file = "signal_corr_data.tab", sep="\t")
 ## sample batch class order
 ## 1 batch01_QC01 1  <NA>     1
 ## 2 batch01_QC02 1  <NA>     2
+sample <- colnames(signal_corr_data[-1])
+batch <- subset(meta_all, file_name_neg %in% sample, "block")
+class <- subset(meta_all, file_name_neg %in% sample, "Regimen")
+
 sampleListFile <- cbind(rownames(meta_all), meta_all$block, meta_all$Regimen, meta_all$order)
 colnames(sampleListFile) <- c("sample", "batch", "class", "order")
 # Save as file and reload again
