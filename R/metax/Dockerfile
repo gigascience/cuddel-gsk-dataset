@@ -82,11 +82,8 @@ RUN R -e "source('http://bioconductor.org/biocLite.R'); biocLite('SSPA')"
 
 RUN R -e "install.packages('matrixStats', repos='https://mirror.lzu.edu.cn/CRAN/')"
 RUN R -e "install.packages('naturalsort', repos='https://mirror.lzu.edu.cn/CRAN/')"
-RUN R -e "source('http://bioconductor.org/biocLite.R'); biocLite('MAIT')"
-RUN R -e "source('http://bioconductor.org/biocLite.R'); biocLite('hyperSpec')"
-RUN R -e "source('http://bioconductor.org/biocLite.R'); biocLite('qdap')"
-# MAIT, hyperSpec and qdap are specmine dependencies
-RUN R -e "install.packages('specmine', repos='https://mirror.lzu.edu.cn/CRAN/')"
+
+RUN R -e "install.packages('mice', repos='https://mirror.lzu.edu.cn/CRAN/')"
 RUN R -e "install.packages('ggfortify', repos='https://mirror.lzu.edu.cn/CRAN/')"
 
 # Download metaX
