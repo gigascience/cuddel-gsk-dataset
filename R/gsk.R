@@ -76,9 +76,9 @@ neg_peaklist$idx <- seq.int(nrow(neg_peaklist))
 # Move index to left hand side of data frame
 neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 
-#####################################
-# Do PCA on negative QC and samples #
-#####################################
+#################################################
+# Do PCA on unprocessed negative QC and samples #
+#################################################
 
 # Prepare neg_peaklist data
 pca_data <- neg_peaklist[, file_name_neg]
@@ -277,7 +277,7 @@ ggsave("signal_corr_neg_qc_pca.png")
 ###############################################################
 # Calculate percentage of missing values for each feature row #
 ###############################################################
-percent_nas <-rep(0, nrow(neg_qc_peaklist))
+percent_nas <-rep(0, nrow(neg_peaklist))
 calculate_percentage_na <- function(peak_intensities){
   for (i in 1:nrow(peak_intensities)) {
     feature_vector <- peak_intensities[i, ]
@@ -288,10 +288,10 @@ calculate_percentage_na <- function(peak_intensities){
   }
   return(percent_nas)
 }
-percent_nas <- calculate_percentage_na(neg_qc_peaklist)
+percent_nas <- calculate_percentage_na(neg_peaklist)
 
 # Paste percent_nas onto QC data frame
-neg_qc_peaklist <- cbind(neg_peaklist[1:12], percent_nas, neg_peaklist[neg_qc_fnames])
+neg_peaklist <- cbind(neg_peaklist[1:12], percent_nas, neg_peaklist[file_name_neg])
 
 ###############################################
 # Remove rows with 40% or more missing values #
@@ -310,8 +310,8 @@ remove_bad_feature_vectors <- function(peak_list, percentage_threshold = 40){
   pretreated_peak_list <- peak_list[-rows_for_deleting, ]
   return(pretreated_peak_list)
 }
-del40_neg_qc_peaklist <- remove_bad_feature_vectors(neg_qc_peaklist)
-del40_neg_qc_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_qc_peaklist, as.numeric)))
+del40_neg_peaklist <- remove_bad_feature_vectors(neg_peaklist)
+del40_neg_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_peaklist, as.numeric)))
 
 ###################################################################
 # Impute means to replace remaining missing values using specmine #
