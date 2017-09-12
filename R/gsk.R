@@ -8,7 +8,8 @@ library(CAMERA)
 library(naturalsort)
 library(matrixStats)
 # library(specmine)
-library(impute)
+library(mice)
+# library(impute)
 library(ggfortify)
 library(metaX)
 
@@ -277,7 +278,7 @@ ggsave("signal_corr_neg_qc_pca.png")
 ###############################################################
 # Calculate percentage of missing values for each feature row #
 ###############################################################
-percent_nas <-rep(0, nrow(neg_peaklist))
+percent_nas <- rep(0, nrow(neg_peaklist))
 calculate_percentage_na <- function(peak_intensities){
   for (i in 1:nrow(peak_intensities)) {
     feature_vector <- peak_intensities[i, ]
@@ -313,25 +314,57 @@ remove_bad_feature_vectors <- function(peak_list, percentage_threshold = 40){
 del40_neg_peaklist <- remove_bad_feature_vectors(neg_peaklist)
 del40_neg_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_peaklist, as.numeric)))
 
-###################################################################
-# Impute means to replace remaining missing values using specmine #
-###################################################################
-# Create list object containing a data object that is the peaklist
-# containing IDs as rownames and QC names are column names
-specmine_qc_neg <- list(data = del40_neg_qc_peaklist[, 14:ncol(del40_neg_qc_peaklist)], type = "ms-spectra", description = "GSK pooled QC")
+####################################################
+# Impute means to replace remaining missing values #
+####################################################
+impute.mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+test <- c(1,2,NA,4, NA)
+impute.mean(test)
+is.na(test)
 
-# Replace NAs with mean
-impute_mean_qc_neg <- impute_nas_mean(specmine_qc_neg)
+# Identify row with NA
+na_rows <- which(is.na(del40_neg_peaklist[, 14:ncol(del40_neg_peaklist)]), arr.ind=TRUE)
+# Clean na_rows
+na_rows <- unique(na_rows[,1])
+
+
+for(i in 1:nrow(del40_neg_peaklist)) {
+  row <- del40_neg_peaklist[1, 14:ncol(del40_neg_peaklist)]
+  if(is.na(row)) {
+    print("Row contains NA")
+    print(i)
+
+  }
+  else {
+    print("No NA")
+  }
+}
+
+impute_mean_del40_neg_peaklist <- matrix(NA, nrow=nrow(del40_neg_peaklist), ncol=ncol(del40_neg_peaklist)-13)
+for (i in 1:nrow(del40_neg_peaklist)) {
+  if(is.na(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)])) {
+    result <- impute.mean(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)])
+    # result <- mice.impute.mean(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)], is.na(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)]))
+    impute_mean_del40_neg_peaklist[i,] <- result
+  }
+  else {
+    result <- del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist), drop=FALSE]
+    impute_mean_del40_neg_peaklist[i,] <- result
+  }
+}
+
+colnames(impute_mean_del40_neg_peaklist) <-  colnames(del40_neg_peaklist[,14:ncol(del40_neg_peaklist)])
+
 
 #############################################
 # Do PCA plot to check effect of imputation #
 #############################################
-impute_mean_pca_data <- cbind(impute_mean_qc_neg$data)
-rownames(impute_mean_pca_data) <- del40_neg_qc_peaklist[,"idx"]
+impute_mean_pca_data <- impute_mean_del40_neg_peaklist
+rownames(impute_mean_pca_data) <- del40_neg_peaklist[,"idx"]
 impute_mean_pca_data <- t(impute_mean_pca_data)
 
 # Create vector containing block information
-sample_names <- colnames(del40_neg_qc_peaklist)
+sample_names <- colnames(del40_neg_peaklist)
 sample_names <- sample_names[14:length(sample_names)]
 block <- integer(0)
 for (i in 1:length(sample_names)) {
