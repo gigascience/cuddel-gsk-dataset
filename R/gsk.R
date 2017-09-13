@@ -361,12 +361,24 @@ for (i in 1:length(sample_names)) {
     block[i] <- "block4"
   }
 }
-impute_mean_pca_data <- cbind(impute_mean_pca_data, block)
+
+# Prepare QC sample information for labelling data points
+pca_meta_qc_sample <- integer(0)
+for (i in 1:length(rownames(impute_mean_pca_data))) {
+  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(impute_mean_pca_data)[i]), "type"] == 'QC') {
+    pca_meta_qc_sample[i] <- "QC"
+  }
+else {
+    pca_meta_qc_sample[i] <- "Sample"
+  }
+}
+
+impute_mean_pca_data <- cbind(impute_mean_pca_data, block, pca_meta_qc_sample)
 write.table(impute_mean_pca_data, file = "impute_mean_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 # Now do PCA
 impute_mean_pca_data <- read.table(file = "impute_mean_pca_data.csv", sep=",")
-autoplot(prcomp(impute_mean_pca_data[,1:ncol(impute_mean_pca_data)-1]), data = impute_mean_pca_data, colour = 'block', main = 'PCA on negative QC data with imputed means for missing values')
+autoplot(prcomp(impute_mean_pca_data[,1:1648]), data = impute_mean_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on negative QC data with imputed means for missing values')
 ggsave("impute_mean_pca_data.png")
 
 ##################################################################################
