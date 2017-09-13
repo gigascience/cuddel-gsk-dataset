@@ -327,39 +327,19 @@ na_rows <- which(is.na(del40_neg_peaklist[, 14:ncol(del40_neg_peaklist)]), arr.i
 # Clean na_rows
 na_rows <- unique(na_rows[,1])
 
+row.has.na <- apply(del40_neg_peaklist[, 14:ncol(del40_neg_peaklist)], 1, function(x){ any(is.na(x)) })
 
-for(i in 1:nrow(del40_neg_peaklist)) {
-  row <- del40_neg_peaklist[1, 14:ncol(del40_neg_peaklist)]
-  if(is.na(row)) {
-    print("Row contains NA")
-    print(i)
+impute_mean_data <- del40_neg_peaklist[,14:ncol(del40_neg_peaklist)]
+na_rows <- which(is.na(impute_mean_data), arr.ind=TRUE)
+impute_mean_data[na_rows] <- rowMeans(impute_mean_data, na.rm=TRUE)[na_rows[,1]]
 
-  }
-  else {
-    print("No NA")
-  }
-}
-
-impute_mean_del40_neg_peaklist <- matrix(NA, nrow=nrow(del40_neg_peaklist), ncol=ncol(del40_neg_peaklist)-13)
-for (i in 1:nrow(del40_neg_peaklist)) {
-  if(is.na(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)])) {
-    result <- impute.mean(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)])
-    # result <- mice.impute.mean(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)], is.na(del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist)]))
-    impute_mean_del40_neg_peaklist[i,] <- result
-  }
-  else {
-    result <- del40_neg_peaklist[i, 14:ncol(del40_neg_peaklist), drop=FALSE]
-    impute_mean_del40_neg_peaklist[i,] <- result
-  }
-}
-
-colnames(impute_mean_del40_neg_peaklist) <-  colnames(del40_neg_peaklist[,14:ncol(del40_neg_peaklist)])
+row.has.na <- apply(impute_mean_data, 1, function(x){ any(is.na(x)) })
 
 
 #############################################
 # Do PCA plot to check effect of imputation #
 #############################################
-impute_mean_pca_data <- impute_mean_del40_neg_peaklist
+impute_mean_pca_data <- impute_mean_data
 rownames(impute_mean_pca_data) <- del40_neg_peaklist[,"idx"]
 impute_mean_pca_data <- t(impute_mean_pca_data)
 
