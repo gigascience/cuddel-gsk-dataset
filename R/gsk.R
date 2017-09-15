@@ -121,20 +121,20 @@ ggsave("unprocessed_neg_qc_sample_pca.png")
 ###############################################################
 
 calculate_percentage_na <- function(peak_intensities){
-for (i in 1:nrow(peak_intensities)) {
-  feature_vector <- peak_intensities[i, ]
-  na_row <- is.na(feature_vector)
-  number_na <- sum(na_row)
-  percent_na <- number_na/ncol(peak_intensities)*100
-  percent_nas[i] <- percent_na
-}
+  for (i in 1:nrow(peak_intensities)) {
+    feature_vector <- peak_intensities[i, ]
+    na_row <- is.na(feature_vector)
+    number_na <- sum(na_row)
+    percent_na <- number_na/ncol(peak_intensities)*100
+    percent_nas[i] <- percent_na
+  }
   return(percent_nas)
 }
 
 percent_nas <- rep(0, nrow(neg_peaklist))
 percent_nas <- calculate_percentage_na(neg_peaklist)
 
-# Paste percent_nas into QC data frame
+# Paste percent_nas into negative peak list data frame
 neg_peaklist <- cbind(neg_peaklist[1:12], percent_nas, neg_peaklist[file_name_neg])
 
 ###############################################
@@ -158,11 +158,11 @@ del40_neg_peaklist <- remove_bad_feature_vectors(neg_peaklist)
 del40_neg_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_peaklist, as.numeric)))
 
 ###############################################################
-# Do PCA after removing features wirh 40% missing data values #
+# Do PCA after removing features with 40% missing data values #
 ###############################################################
 
 # Prepare neg_peaklist data
-pca_data <- neg_peaklist[, file_name_neg]
+pca_data <- del40_neg_peaklist[, file_name_neg]
 
 # Prepare block information for labelling data points
 block <- integer(0)
@@ -203,18 +203,18 @@ pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
 
 write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape= "block", colour = 'pca_meta_qc_sample', main = 'PCA on unprocessed negative QC and sample data')
-ggsave("unprocessed_neg_qc_sample_pca.png")
+autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape= "block", colour = 'pca_meta_qc_sample', main = 'PCA on negative QC and sample data after peaks missing 40% values removed')
+ggsave("40_percent_filtered_neg_qc_sample_pca.png")
 
 ####################################################
 # Impute means to replace remaining missing values #
 ####################################################
 impute.mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
-test <- c(1,2,NA,4, NA)
-impute.mean(test)
-is.na(test)
+#test <- c(1, 2, NA, 4, NA)
+#impute.mean(test)
+#is.na(test)
 
-# Identify row with NA
+# Identify rows with NA
 na_rows <- which(is.na(del40_neg_peaklist[, 14:ncol(del40_neg_peaklist)]), arr.ind=TRUE)
 # Clean na_rows
 na_rows <- unique(na_rows[,1])
