@@ -1,13 +1,7 @@
-# When starting R, the error message appears:
-Warning messages:
-1: In rgl.init(initValue, onlyNULL) : RGL: unable to open X11 display
-2: 'rgl_init' failed, running with rgl.useNULL = TRUE
-
 library(xcms)
 library(CAMERA)
 library(naturalsort)
 library(matrixStats)
-# library(specmine)
 library(mice)
 # library(impute)
 library(ggfortify)
