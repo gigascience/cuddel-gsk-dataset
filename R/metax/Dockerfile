@@ -86,6 +86,9 @@ RUN R -e "install.packages('naturalsort', repos='https://mirror.lzu.edu.cn/CRAN/
 RUN R -e "install.packages('mice', repos='https://mirror.lzu.edu.cn/CRAN/')"
 RUN R -e "install.packages('ggfortify', repos='https://mirror.lzu.edu.cn/CRAN/')"
 
+# Required for k-means imputation
+RUN R -e "install.packages('VIM', repos='https://mirror.lzu.edu.cn/CRAN/')"
+
 # Download metaX
 RUN wget --directory-prefix=/tmp http://metax.genomics.cn/files/metaX_1.4.16.tar.gz
 
