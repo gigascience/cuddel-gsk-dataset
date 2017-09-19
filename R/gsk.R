@@ -275,21 +275,22 @@ colnames(impute_knn_data) <- del40_neg_peaklist[,"idx"]
 na_cols <- colnames(impute_knn_data)[colSums(is.na(impute_knn_data)) > 0]
 # Perform K-means clustering using VIM
 knn <- kNN(impute_knn_data, variable = na_cols)
-
-na_rows <- which(is.na(impute_mean_data), arr.ind=TRUE)
-impute_knn_data[na_rows] <- rowMeans(impute_mean_data, na.rm=TRUE)[na_rows[,1]]
+# Copy peak features from kNN result
+impute_knn <- knn[,1:1637]
+impute_knn <- as.matrix(impute_knn)
+# Copy rownames from impute_knn_data to rownames for knn
+rownames(impute_knn) <- rownames(impute_knn_data)
+# Copy colnames from impute_knn_data to colnames for knn
+colnames(impute_knn) <- colnames(impute_knn_data)
 
 
 #####################################################
 # Do PCA plot to check effect of imputed knn values #
 #####################################################
-impute_mean_pca_data <- impute_mean_data
-rownames(impute_mean_pca_data) <- del40_neg_peaklist[,"idx"]
-impute_mean_pca_data <- t(impute_mean_pca_data)
+impute_knn_pca_data <- impute_knn
 
 # Create vector containing block information
-sample_names <- colnames(del40_neg_peaklist)
-sample_names <- sample_names[14:length(sample_names)]
+sample_names <- rownames(impute_knn_pca_data)
 block <- integer(0)
 for (i in 1:length(sample_names)) {
   if (grepl("block1", sample_names[i]) == 1) {
@@ -308,8 +309,8 @@ for (i in 1:length(sample_names)) {
 
 # Prepare QC sample information for labelling data points
 pca_meta_qc_sample <- integer(0)
-for (i in 1:length(rownames(impute_mean_pca_data))) {
-  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(impute_mean_pca_data)[i]), "type"] == 'QC') {
+for (i in 1:length(rownames(impute_knn_pca_data))) {
+  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(impute_knn_pca_data)[i]), "type"] == 'QC') {
     pca_meta_qc_sample[i] <- "QC"
   }
   else {
@@ -317,12 +318,12 @@ for (i in 1:length(rownames(impute_mean_pca_data))) {
   }
 }
 
-impute_mean_pca_data <- cbind(impute_mean_pca_data, block, pca_meta_qc_sample)
-write.table(impute_mean_pca_data, file = "impute_mean_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+impute_knn_pca_data <- cbind(impute_knn_pca_data, block, pca_meta_qc_sample)
+write.table(impute_knn_pca_data, file = "impute_knn_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 # Now do PCA
-impute_mean_pca_data <- read.table(file = "impute_mean_pca_data.csv", sep=",")
-autoplot(prcomp(impute_mean_pca_data[,1:1648]), data = impute_mean_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on negative QC data with imputed means for missing values')
+impute_knn_pca_data <- read.table(file = "impute_knn_pca_data.csv", sep=",")
+autoplot(prcomp(impute_knn_pca_data[,1:1637]), data = impute_knn_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on negative QC data with imputed k-means for missing values')
 ggsave("impute_knn_pca_data.png")
 
 
