@@ -325,46 +325,44 @@ autoplot(prcomp(impute_knn_pca_data[,1:1637]), data = impute_knn_pca_data, shape
 ggsave("impute_knn_pca_data.png")
 
 
-#####################################################
-# Filter data containing k-means imputations by RSD #
-#####################################################
+######################################
+# Filter k-means imputed data by RSD #
+######################################
 
 # Prepare data for RSD analysis
-impute_knn_qc_neg <- impute_nas_knn(specmine_qc_neg, k=10)
-impute_knn_qc_neg <- impute_knn_qc_neg$data
-impute_knn_qc_neg <- impute_knn_qc_neg$data
-rownames(impute_knn_qc_neg) <- del40_neg_qc_peaklist[,"idx"]
+rsd_data <- impute_knn
+rsd_data <- t(rsd_data)
 
 # Process data by rows according to peaks across QC samples
 # Peaks are removed if its RSD QC value was >20%; i.e. the analytical
 # reproducibility of the peak was considered too high.
 filter_by_rsd <- function(data, feature_percent_threshold = 20) {
-# Calculate mean for each feature vector row
-feature_vector_means <- rowMeans(data)
-# Calculate standard deviation by feature vector row
-feature_vector_standard_deviations <- apply(data, 1, sd)
-# Check feature_vector_means and feature_vector_standard_deviations lengths
-if (length(feature_vector_means) != length(feature_vector_standard_deviations)) {
-  print(paste0("feature_vector_means length is not equal to feature_vector_standard_deviations length"))
+  # Calculate mean for each feature vector row
+  feature_vector_means <- rowMeans(data)
+  # Calculate standard deviation by feature vector row
+  feature_vector_standard_deviations <- apply(data, 1, sd)
+  # Check feature_vector_means and feature_vector_standard_deviations lengths
+  if (length(feature_vector_means) != length(feature_vector_standard_deviations)) {
+      print(paste0("feature_vector_means length is not equal to feature_vector_standard_deviations length"))
   }
   # Calculate RSD per row from above matrix and add as third column by dividing the standard deviation by the mean and then multiply the result by 100 to express it as a percentage.
-  feature_vector_rsds <- apply(data[,1:84 ], 1, function(data) {
-  sd <- sd(data)
-  mean <- mean(data)
-  rsd <- (sd/mean) * 100
-  return(rsd)
-})
+  feature_vector_rsds <- apply(data, 1, function(data) {
+    sd <- sd(data)
+    mean <- mean(data)
+    rsd <- (sd/mean) * 100
+    return(rsd)
+  })
 
-# Column bind feature_vector_means and feature_vector_standard_deviations
-data <- cbind(data, feature_vector_means, feature_vector_standard_deviations,feature_vector_rsds)
-# List peak IDs from rownames which are above 20% RSD and need removing from
-# feature vector matrix
-rows_for_deleting <- which(data[,87] > 20)
-data <- data[-rows_for_deleting, ]
-return(data)
+  # Column bind feature_vector_means and feature_vector_standard_deviations
+  data <- cbind(data, feature_vector_means, feature_vector_standard_deviations,feature_vector_rsds)
+  # List peak IDs from rownames which are above 20% RSD and need removing from
+  # feature vector matrix
+  rows_for_deleting <- which(data[,"feature_vector_rsds"] > 20)
+  data <- data[-rows_for_deleting, ]
+  return(data)
 }
 
-rsd_knn_qc_neg <- filter_by_rsd(impute_knn_qc_neg)
+rsd_knn_neg <- filter_by_rsd(rsd_data)
 
 ############################################################
 # Do PCA to check effect of RSD filtering after imputation #
