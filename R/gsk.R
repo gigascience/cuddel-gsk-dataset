@@ -116,9 +116,62 @@ autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape= "block", colour = 'pc
 ggsave("unprocessed_neg_qc_sample_pca.png")
 
 
-###############################################################
-# Calculate percentage of missing values for each feature row #
-###############################################################
+###################################################
+# Extract negative QC data from negative peaklist #
+###################################################
+
+# Get QC sample names
+meta_all_qc_rows <- meta_all[, "type"] == "QC"
+neg_qc_names <- meta_all[meta_all_qc_rows, "file_name_neg"]
+neg_qc_names <- as.character(neg_qc_names)
+# Subset QC data from negative peak list
+qc_neg_peaklist <- neg_peaklist[,neg_qc_names]
+
+
+##############################
+# Do PCA on negative QC data #
+##############################
+
+# Prepare neg_peaklist data
+pca_data <- qc_neg_peaklist
+
+# Prepare block information for labelling data points
+block <- integer(0)
+qc_names <- colnames(pca_data)
+for (i in 1:length(qc_names)) {
+  if (grepl("block1", qc_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", qc_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", qc_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", qc_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+
+# Transpose data
+pca_data <- t(pca_data)
+# Add block information, QC and sample names to PCA data
+pca_data <- cbind(pca_data, block)
+# PCA cannot be performed on data with missing values
+# Therefore remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:409]), data = pca_data, colour= "block", main = 'PCA on unprocessed negative QCs')
+ggsave("unprocessed_neg_qc_pca.png")
+
+
+############################################################################
+# Calculate percentage of missing values for each feature row for QCs only #
+############################################################################
+
+percent_na_qc_neg_peaklist <- qc_neg_peaklist
 
 calculate_percentage_na <- function(peak_intensities){
   for (i in 1:nrow(peak_intensities)) {
@@ -131,31 +184,22 @@ calculate_percentage_na <- function(peak_intensities){
   return(percent_nas)
 }
 
-percent_nas <- rep(0, nrow(neg_peaklist))
-percent_nas <- calculate_percentage_na(neg_peaklist)
+percent_nas <- rep(0, nrow(percent_na_qc_neg_peaklist))
+percent_nas <- calculate_percentage_na(percent_na_qc_neg_peaklist)
 
 # Paste percent_nas into negative peak list data frame
-neg_peaklist <- cbind(neg_peaklist[1:12], percent_nas, neg_peaklist[file_name_neg])
+percent_na_qc_neg_peaklist <- cbind(percent_na_qc_neg_peaklist, percent_nas)
+# Copy peak id rownames into last column
+percent_na_qc_neg_peaklist <- cbind(percent_na_qc_neg_peaklist, rownames(percent_na_qc_neg_peaklist))
+colnames(percent_na_qc_neg_peaklist)[ncol(percent_na_qc_neg_peaklist)] <- "idx"
 
 ###############################################
 # Remove rows with 40% or more missing values #
 ###############################################
-remove_bad_feature_vectors <- function(peak_list, percentage_threshold = 40){
-  rows_for_deleting <- vector('numeric')
-  for (i in 1:nrow(peak_list)) {
-    row <- peak_list[i, ]
-    na_percentage <- row[, "percent_nas"]
-    if (na_percentage > percentage_threshold) {
-      #print(peak_list[i,])
-      #print(peak_list[i,ncol(row)])
-      rows_for_deleting <- c(rows_for_deleting, i)
-    }
-  }
-  pretreated_peak_list <- peak_list[-rows_for_deleting, ]
-  return(pretreated_peak_list)
-}
-del40_neg_peaklist <- remove_bad_feature_vectors(neg_peaklist)
-del40_neg_peaklist <- as.matrix(as.data.frame(lapply(del40_neg_peaklist, as.numeric)))
+
+over_40_percent_rows <- as.numeric(percent_na_qc_neg_peaklist$percent_nas) < 40
+del40_qc_neg_peaklist <- percent_na_qc_neg_peaklist[over_40_percent_rows,]
+
 
 ###############################################################
 # Do PCA after removing features with 40% missing data values #
@@ -368,30 +412,47 @@ rsd_knn_neg <- filter_by_rsd(rsd_data)
 # Do PCA to check effect of RSD filtering after imputation #
 ############################################################
 
+rsd_knn_neg_pca_data <- rsd_knn_neg
+
+# Remove RSD calculation columns
+rsd_cols <- colnames(rsd_knn_neg_pca_data) %in% c("feature_vector_means", "feature_vector_standard_deviations", "feature_vector_rsds")
+rsd_knn_neg_pca_data <- rsd_knn_neg_pca_data[,!rsd_cols]
+rsd_knn_neg_pca_data <- t(rsd_knn_neg_pca_data)
 # Create vector containing block information
-sample_names <- colnames(rsd_knn_qc_neg)
-sample_names <- sample_names[1:84]
+sample_names <- rownames(rsd_knn_neg_pca_data)
 block <- integer(0)
 for (i in 1:length(sample_names)) {
-if (grepl("block1", sample_names[i]) == 1) {
-block[i] <- "block1"
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
 }
-else if (grepl("block2", sample_names[i]) == 1) {
-block[i] <- "block2"
-}
-else if (grepl("block3", sample_names[i]) == 1) {
-block[i] <- "block3"
-}
-else if (grepl("block4", sample_names[i]) == 1) {
-block[i] <- "block4"
-}
-}
-rsd_knn_qc_neg <- cbind(rsd_knn_qc_neg, block)
-write.table(rsd_knn_qc_neg, file = "rsd_knn_qc_neg.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
-rsd_knn_qc_neg_pca_data <- read.table(file = "rsd_knn_qc_neg.csv", sep=",")
-autoplot(prcomp(rsd_knn_qc_neg_pca_data[,1:ncol(rsd_knn_qc_neg_pca_data)-1]), data = rsd_knn_qc_neg_pca_data, colour = 'block', main = 'PCA on RSD filtered, k-means imputed QC negative data')
-ggsave("pca_rsd_knn_qc_neg.png")
+# Prepare QC sample information for labelling data points
+pca_meta_qc_sample <- integer(0)
+for (i in 1:length(rownames(rsd_knn_neg_pca_data))) {
+  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(rsd_knn_neg_pca_data)[i]), "type"] == 'QC') {
+    pca_meta_qc_sample[i] <- "QC"
+  }
+  else {
+    pca_meta_qc_sample[i] <- "Sample"
+  }
+}
+
+rsd_knn_neg_pca_data <- cbind(rsd_knn_neg_pca_data, block, pca_meta_qc_sample)
+write.table(rsd_knn_neg_pca_data, file = "rsd_knn_neg_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+
+rsd_knn_neg_pca_data <- read.table(file = "rsd_knn_neg_pca_data.csv", sep=",")
+autoplot(prcomp(rsd_knn_neg_pca_data[,1:241]), data = rsd_knn_neg_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on RSD filtered, k-means imputed QC and sample negative data')
+ggsave("rsd_knn_neg_pca_data.png")
 
 
 ############################################################
