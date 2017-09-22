@@ -350,8 +350,8 @@ ggsave("impute_knn_pca_data.png")
 ######################################
 
 # Prepare data for RSD analysis
-rsd_data <- impute_knn
-rsd_data <- t(rsd_data)
+rsd_qc_neg_peaklist <- impute_knn_qc_neg_peaklist2
+rsd_qc_neg_peaklist <- t(rsd_qc_neg_peaklist)
 
 # Process data by rows according to peaks across QC samples
 # Peaks are removed if its RSD QC value was >20%; i.e. the analytical
@@ -382,20 +382,21 @@ filter_by_rsd <- function(data, feature_percent_threshold = 20) {
   return(data)
 }
 
-rsd_knn_neg <- filter_by_rsd(rsd_data)
+rsd_qc_neg_peaklist <- filter_by_rsd(rsd_qc_neg_peaklist)
 
 ############################################################
 # Do PCA to check effect of RSD filtering after imputation #
 ############################################################
 
-rsd_knn_neg_pca_data <- rsd_knn_neg
+pca_data <- rsd_qc_neg_peaklist
 
 # Remove RSD calculation columns
-rsd_cols <- colnames(rsd_knn_neg_pca_data) %in% c("feature_vector_means", "feature_vector_standard_deviations", "feature_vector_rsds")
-rsd_knn_neg_pca_data <- rsd_knn_neg_pca_data[,!rsd_cols]
-rsd_knn_neg_pca_data <- t(rsd_knn_neg_pca_data)
+rsd_cols <- colnames(pca_data) %in% c("feature_vector_means", "feature_vector_standard_deviations", "feature_vector_rsds")
+pca_data <- pca_data[,!rsd_cols]
+pca_data <- t(pca_data)
+
 # Create vector containing block information
-sample_names <- rownames(rsd_knn_neg_pca_data)
+sample_names <- rownames(pca_data)
 block <- integer(0)
 for (i in 1:length(sample_names)) {
   if (grepl("block1", sample_names[i]) == 1) {
@@ -412,23 +413,12 @@ for (i in 1:length(sample_names)) {
   }
 }
 
-# Prepare QC sample information for labelling data points
-pca_meta_qc_sample <- integer(0)
-for (i in 1:length(rownames(rsd_knn_neg_pca_data))) {
-  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(rsd_knn_neg_pca_data)[i]), "type"] == 'QC') {
-    pca_meta_qc_sample[i] <- "QC"
-  }
-  else {
-    pca_meta_qc_sample[i] <- "Sample"
-  }
-}
+pca_data <- cbind(pca_data, block)
+write.table(pca_data, file = "rsd_knn_neg_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
-rsd_knn_neg_pca_data <- cbind(rsd_knn_neg_pca_data, block, pca_meta_qc_sample)
-write.table(rsd_knn_neg_pca_data, file = "rsd_knn_neg_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-
-rsd_knn_neg_pca_data <- read.table(file = "rsd_knn_neg_pca_data.csv", sep=",")
-autoplot(prcomp(rsd_knn_neg_pca_data[,1:241]), data = rsd_knn_neg_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on RSD filtered, k-means imputed QC and sample negative data')
-ggsave("rsd_knn_neg_pca_data.png")
+pca_data <- read.table(file = "rsd_knn_neg_pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = "block", main = 'PCA on RSD filtered, k-means imputed QC and sample negative data')
+ggsave("rsd_neg_qc_pca_data.png")
 
 
 ############################################################
