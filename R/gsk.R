@@ -421,6 +421,27 @@ autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = "block
 ggsave("rsd_neg_qc_pca_data.png")
 
 
+#####################################################
+# Get feature vectors from samples using QC vectors #
+#####################################################
+
+pretreated_qc_sample_peaklist <- rsd_qc_neg_peaklist
+pretreated_qc_sample_peaklist <- pretreated_qc_sample_peaklist[,!rsd_cols]
+# Get peak idx of pretreated QC feature vectors
+pretreated_idx <- rownames(pretreated_qc_sample_peaklist)
+
+# Get QC and sample feature vectors from neg_peaklist
+pretreated_sample_peaklist <- neg_peaklist[rownames(neg_peaklist) %in% pretreated_idx,]
+# Get rid of QCs in pretreated_sample_peaklist
+neg_sample_names <- meta_all[meta_all$type == "Sample", "file_name_neg"]
+neg_sample_names <- as.character(neg_sample_names)
+# Get sample peaklist using neg_sample_names
+pretreated_sample_peaklist <- pretreated_sample_peaklist[,colnames(pretreated_sample_peaklist) %in% neg_sample_names]
+
+
+# Do PCA on combined rsd_qc_neg_peaklist and pretreated_sample_peaklist
+
+
 ############################################################
 # Use metaX data normalisation to correct within batch and #
 # batch-to-batch variation                                 #
