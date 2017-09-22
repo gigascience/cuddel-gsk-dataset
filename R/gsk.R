@@ -288,36 +288,38 @@ autoplot(prcomp(pca_data[1:ncol(pca_data)-1]), data = pca_data, colour= "block",
 ggsave("impute_mean_pca_data.png")
 
 
-##################################################################################
-# Impute k-nearest neighbours to replace remaining missing values using specmine #
+###################################################################
+# Impute k-nearest neighbours to replace remaining missing values #
 ##################################################################################
 
 # Replace NAs with k-means clustering
-impute_knn_data <- del40_neg_peaklist[,14:ncol(del40_neg_peaklist)]
+impute_knn_qc_neg_peaklist <- del40_qc_neg_peaklist
+# Clean up columns
+nr <- c("percent_nas", "idx")
+nr <- colnames(del40_qc_neg_peaklist) %in% c("percent_nas", "idx")
+impute_knn_qc_neg_peaklist <- impute_knn_qc_neg_peaklist[,!nr]
 # Transpose data
-impute_knn_data <- t(impute_knn_data)
-# Copy rownames from del40_neg_peaklist to impute_knn_data column names
-colnames(impute_knn_data) <- del40_neg_peaklist[,"idx"]
+impute_knn_qc_neg_peaklist <- t(impute_knn_qc_neg_peaklist)
 # Identify which column peak features have missing values
-na_cols <- colnames(impute_knn_data)[colSums(is.na(impute_knn_data)) > 0]
+na_cols <- colnames(impute_knn_qc_neg_peaklist)[colSums(is.na(impute_knn_qc_neg_peaklist)) > 0]
 # Perform K-means clustering using VIM
-knn <- kNN(impute_knn_data, variable = na_cols)
+knn <- kNN(impute_knn_qc_neg_peaklist, variable = na_cols)
 # Copy peak features from kNN result
-impute_knn <- knn[,1:1637]
-impute_knn <- as.matrix(impute_knn)
+impute_knn_qc_neg_peaklist2 <- knn[,1:1704]
+impute_knn_qc_neg_peaklist2 <- as.matrix(impute_knn_qc_neg_peaklist2)
 # Copy rownames from impute_knn_data to rownames for knn
-rownames(impute_knn) <- rownames(impute_knn_data)
+rownames(impute_knn_qc_neg_peaklist2) <- rownames(impute_knn_qc_neg_peaklist)
 # Copy colnames from impute_knn_data to colnames for knn
-colnames(impute_knn) <- colnames(impute_knn_data)
+colnames(impute_knn_qc_neg_peaklist2) <- colnames(impute_knn_qc_neg_peaklist)
 
 
 #####################################################
 # Do PCA plot to check effect of imputed knn values #
 #####################################################
-impute_knn_pca_data <- impute_knn
+pca_data <- impute_knn_qc_neg_peaklist2
 
 # Create vector containing block information
-sample_names <- rownames(impute_knn_pca_data)
+sample_names <- rownames(pca_data)
 block <- integer(0)
 for (i in 1:length(sample_names)) {
   if (grepl("block1", sample_names[i]) == 1) {
@@ -334,23 +336,12 @@ for (i in 1:length(sample_names)) {
   }
 }
 
-# Prepare QC sample information for labelling data points
-pca_meta_qc_sample <- integer(0)
-for (i in 1:length(rownames(impute_knn_pca_data))) {
-  if (meta_all[which(meta_all[,"file_name_neg"]==rownames(impute_knn_pca_data)[i]), "type"] == 'QC') {
-    pca_meta_qc_sample[i] <- "QC"
-  }
-  else {
-    pca_meta_qc_sample[i] <- "Sample"
-  }
-}
-
-impute_knn_pca_data <- cbind(impute_knn_pca_data, block, pca_meta_qc_sample)
-write.table(impute_knn_pca_data, file = "impute_knn_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- cbind(pca_data, block)
+write.table(pca_data, file = "impute_knn_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 # Now do PCA
-impute_knn_pca_data <- read.table(file = "impute_knn_pca_data.csv", sep=",")
-autoplot(prcomp(impute_knn_pca_data[,1:1637]), data = impute_knn_pca_data, shape= "block", colour = "pca_meta_qc_sample", main = 'PCA on negative QC data with imputed k-means for missing values')
+pca_data <- read.table(file = "impute_knn_pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = "block", main = 'PCA on negative QC data with imputed k-means for missing values')
 ggsave("impute_knn_pca_data.png")
 
 
