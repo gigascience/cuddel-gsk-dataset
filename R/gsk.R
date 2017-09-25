@@ -560,7 +560,7 @@ ggsave("pca_data.png")
 
 ############################################################
 # Use metaX data normalisation to correct within batch and #
-# batch-to-batch variation                                 #
+# batch-to-batch variation in negative QCs and samples     #
 ############################################################
 
 # Need to consider batch differences affecting peaks in QCs due to the
@@ -576,12 +576,8 @@ name batch01_QC01 batch01_QC02 batch01_QC03
 5 385.12885      57625.0      56964.0      59045.0
 6 237.02815     105490.0      90166.0      92315.0
 
-# Remove unrequired columns
-signal_corr_data <- subset(neg_peaklist, select = -c(1:12, 384:386))
 
-# Remove peak rows if it contains missing values
-# signal_corr_data <- signal_corr_data[ , colSums(is.na(signal_corr_data)) == 0]
-signal_corr_data <- na.omit(signal_corr_data)
+signal_corr_data <- pretreated_qc_knn_sample_peaklist
 
 # Move rownames into first column
 signal_corr_data <- cbind(rownames(signal_corr_data), signal_corr_data)
@@ -590,8 +586,6 @@ head(signal_corr_data[,1:4])
 # Add colname for first column
 col_names <- c("name", colnames(signal_corr_data)[-1])
 colnames(signal_corr_data) <- col_names
-# Reformat row names
-rownames(signal_corr_data) <- rep(1:nrow(signal_corr_data))
 # Save as file and reload again
 write.table(signal_corr_data, file = "signal_corr_data.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
 signal_corr_data <- read.table(file = "signal_corr_data.tab", sep="\t")
@@ -601,11 +595,12 @@ signal_corr_data <- read.table(file = "signal_corr_data.tab", sep="\t")
 ## 1 batch01_QC01 1  <NA>     1
 ## 2 batch01_QC02 1  <NA>     2
 sample <- colnames(signal_corr_data[-1])
-batch <- subset(meta_all, file_name_neg %in% sample, "block")
-class <- subset(meta_all, file_name_neg %in% sample, "Regimen")
-order <- meta_all$order
+sample_idx <- match(sample, meta_all$file_name_neg)
+batch <- meta_all[sample_idx, "block"]
+class <- meta_all[sample_idx, "Regimen"]
+order <- meta_all[sample_idx, "order"]
 
-sampleListFile <- cbind(sample, batch, class, meta_all$order)
+sampleListFile <- cbind(sample, batch, class, order)
 colnames(sampleListFile) <- c("sample", "batch", "class", "order")
 # Save as file and reload again
 write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
@@ -649,16 +644,12 @@ ID             sample       value batch class order
 peak_data <- res$metaXpara
 peak_data <- peak_data@peaksData
 peak_data <- peak_data[order(peak_data$sample),]
-# Re-format data so that QCs and samples are lined up column by column
-# if rowname = sample name 1 then copy to column 1 at the end
+stuff <- matrix(peak_data[,"value"], nrow = 506, ncol = 371)
 sample_names <- peak_data[, "sample"]
 sample_names <- unique(sample_names)
-sample_names <- as.character(sample_names)
-test <- subset(peak_data, sample == "GSK_neg_block1_09r")
-test <- peak_data[ which(peak_data$sample=='GSK_neg_block1_09r'), "value"]
-
-# Create empty matrix
-pca_data <- matrix(, nrow = 409, ncol = length(sample_names))
+colnames(stuff) <- sample_names
+stuff <- cbind(peak_data[1:506, "ID"], stuff)
+colnames(stuff) <- c("ID", colnames(stuff)[-1])
 
 for (i in 1:length(sample_names)) {
   col_data <- peak_data[ which(peak_data$sample==sample_names[i]), "value"]
