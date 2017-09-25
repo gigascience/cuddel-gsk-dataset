@@ -417,7 +417,7 @@ pca_data <- cbind(pca_data, block)
 write.table(pca_data, file = "rsd_knn_neg_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 pca_data <- read.table(file = "rsd_knn_neg_pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = "block", main = 'PCA on RSD filtered, k-means imputed QC and sample negative data')
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = "block", main = 'PCA on RSD filtered, k-means imputed QC negative data')
 ggsave("rsd_neg_qc_pca_data.png")
 
 
@@ -437,9 +437,55 @@ neg_sample_names <- meta_all[meta_all$type == "Sample", "file_name_neg"]
 neg_sample_names <- as.character(neg_sample_names)
 # Get sample peaklist using neg_sample_names
 pretreated_sample_peaklist <- pretreated_sample_peaklist[,colnames(pretreated_sample_peaklist) %in% neg_sample_names]
-
+# Combine QCs and samples from negative peaklist
+pretreated_qc_sample_peaklist <- cbind(pretreated_qc_sample_peaklist, pretreated_sample_peaklist)
 
 # Do PCA on combined rsd_qc_neg_peaklist and pretreated_sample_peaklist
+pca_data <- pretreated_qc_sample_peaklist
+pca_data_qc_sample_names <- colnames(pretreated_qc_sample_peaklist)
+pca_data_peak_idx <- rownames(pretreated_qc_sample_peaklist)
+pca_data <- t(pca_data)
+
+# Create vector containing block information
+sample_names <- colnames(pca_data)
+block <- integer(0)
+for (i in 1:length(sample_names)) {
+  if (grepl("block1", sample_names[i]) == 1) {
+    block[i] <- "block1"
+  }
+  else if (grepl("block2", sample_names[i]) == 1) {
+    block[i] <- "block2"
+  }
+  else if (grepl("block3", sample_names[i]) == 1) {
+    block[i] <- "block3"
+  }
+  else if (grepl("block4", sample_names[i]) == 1) {
+    block[i] <- "block4"
+  }
+}
+
+# Prepare QC and sample information for labelling data points
+pca_meta_qc_sample <- integer(0)
+qc_sample_names <- colnames(pretreated_qc_sample_peaklist)
+for (i in 1:length(qc_sample_names)) {
+  if (meta_all[which(meta_all[,"file_name_neg"]==qc_sample_names[i]), "type"] == 'QC') {
+    pca_meta_qc_sample[i] <- "QC"
+  }
+  else {
+    pca_meta_qc_sample[i] <- "Sample"
+  }
+}
+
+pca_data <- cbind(pca_data, block, pca_meta_qc_sample)
+# PCA cannot be performed on data with missing values
+# Therefore remove peak rows if it contains missing values
+pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:210]), data = pca_data, colour = "pca_meta_qc_sample", shape = "block", main = 'PCA on pretreated negative QCs with negative samples')
+ggsave("pca_data.png")
 
 
 ############################################################
