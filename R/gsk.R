@@ -644,22 +644,25 @@ ID             sample       value batch class order
 peak_data <- res$metaXpara
 peak_data <- peak_data@peaksData
 peak_data <- peak_data[order(peak_data$sample),]
-stuff <- matrix(peak_data[,"value"], nrow = 506, ncol = 371)
+sig_corr_qc_sample_neg <- matrix(peak_data[,"value"], nrow = 506, ncol = 371)
 sample_names <- peak_data[, "sample"]
 sample_names <- unique(sample_names)
-colnames(stuff) <- sample_names
-stuff <- cbind(peak_data[1:506, "ID"], stuff)
-colnames(stuff) <- c("ID", colnames(stuff)[-1])
+colnames(sig_corr_qc_sample_neg) <- sample_names
+sig_corr_qc_sample_neg <- cbind(peak_data[1:506, "ID"], sig_corr_qc_sample_neg)
+colnames(sig_corr_qc_sample_neg) <- c("ID", colnames(sig_corr_qc_sample_neg)[-1])
+write.table(sig_corr_qc_sample_neg, file = "sig_corr_qc_sample_neg.csv", sep =",", row.names = TRUE, col.names = TRUE)
+sig_corr_qc_sample_neg <- read.table(file = "sig_corr_qc_sample_neg.csv", sep=",")
+sig_corr_qc_sample_neg <- sig_corr_qc_sample_neg[naturalorder(sig_corr_qc_sample_neg$ID),]
+rownames(sig_corr_qc_sample_neg) <- sig_corr_qc_sample_neg$ID
+# Delete first ID column
+sig_corr_qc_sample_neg$ID <- NULL
 
-for (i in 1:length(sample_names)) {
-  col_data <- peak_data[ which(peak_data$sample==sample_names[i]), "value"]
-  pca_data[, i] <- col_data
-}
-colnames(pca_data) <- sample_names
+pca_data <- sig_corr_qc_sample_neg
 
-# Create block metadata information for PCA display
+# Prepare block information for labelling data points
 block <- integer(0)
-for (i in 1:length(sample_names)) {
+sample_names <- colnames(pca_data)
+for (i in 1:length(qc_sample_names)) {
   if (grepl("block1", sample_names[i]) == 1) {
     block[i] <- "block1"
   }
@@ -674,27 +677,24 @@ for (i in 1:length(sample_names)) {
   }
 }
 
-# Create vector containing QC and sample information
-pca_meta_qc <- integer(0)
+# Prepare QC and sample information for labelling data points
+pca_meta_qc_sample <- integer(0)
 for (i in 1:length(sample_names)) {
   if (meta_all[which(meta_all[,"file_name_neg"]==sample_names[i]), "type"] == 'QC') {
-    pca_meta_qc[i] <- "QC"
+    pca_meta_qc_sample[i] <- "QC"
   }
   else {
-    pca_meta_qc[i] <- "Sample"
+    pca_meta_qc_sample[i] <- "Sample"
   }
 }
 
 # Transpose data
 pca_data <- t(pca_data)
-# Add block information to PCA data
-pca_data <- cbind(pca_data, block, pca_meta_qc)
-# PCA cannot be performed on data with missing values
-# Remove peak rows if it contains missing values
-#pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
+# Add block information, QC and sample names to PCA data
+pca_data <- cbind(pca_data, block, pca_meta_qc_sample)
 
 write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape= "block", colour = 'pca_meta_qc', main = 'PCA on signal corrected negative QC data')
-ggsave("signal_corr_neg_qc_pca.png")
+autoplot(prcomp(pca_data[,1:506]), data = pca_data, shape= "block", colour = 'pca_meta_qc_sample', main = 'PCA on normalised negative QC and sample data')
+ggsave("norm_neg_qc_sample_pca.png")
 
