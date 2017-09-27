@@ -698,3 +698,44 @@ pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:506]), data = pca_data, shape= "block", colour = 'pca_meta_qc_sample', main = 'PCA on normalised negative QC and sample data')
 ggsave("norm_neg_qc_sample_pca.png")
 
+
+############################################################################
+# Statistical analyses are done by querying file names to extract data for #
+# analysis                                                                 #
+############################################################################
+
+# Perform PCA on food and exercise regimens with QCs
+
+# Get QCs
+qc_names <- meta_all[meta_all[, "type"] == "QC", "file_name_neg"]
+qc_names <- as.character(qc_names)
+
+# Get samples for Regimen A, B, C and D
+regimenA <- meta_all[meta_all$Regimen == "A" & meta_all$type == "Sample", "file_name_neg"]
+regimenA <- as.character(regimenA)
+
+regimenB <- meta_all[meta_all$Regimen == "B" & meta_all$type == "Sample", "file_name_neg"]
+regimenB <- as.character(regimenB)
+
+regimenC <- meta_all[meta_all$Regimen == "C" & meta_all$type == "Sample", "file_name_neg"]
+regimenC <- as.character(regimenC)
+
+regimenD <- meta_all[meta_all$Regimen == "D" & meta_all$type == "Sample", "file_name_neg"]
+regimenD <- as.character(regimenD)
+
+# Create matrix containing data
+qc_sample_names <- c(qc_names, regimenA, regimenB, regimenC ,regimenD)
+pca_data <- sig_corr_qc_sample_neg[ ,qc_sample_names]
+
+# Prepare block information for labelling data points
+regimen <- c(rep("QC", length(qc_names)), rep("Regimen A", length(regimenA)), rep("Regimen B", length(regimenB)), rep("Regimen C", length(regimenC)), rep("Regimen D", length(regimenD)))
+
+# Transpose data
+pca_data <- t(pca_data)
+# Add block information, QC and sample names to PCA data
+pca_data <- cbind(pca_data, regimen)
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on normalised negative QC and sample data')
+ggsave("pca_regimens.png")
