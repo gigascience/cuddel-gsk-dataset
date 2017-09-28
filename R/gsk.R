@@ -699,12 +699,11 @@ autoplot(prcomp(pca_data[,1:506]), data = pca_data, shape= "block", colour = 'pc
 ggsave("norm_neg_qc_sample_pca.png")
 
 
-############################################################################
-# Statistical analyses are done by querying file names to extract data for #
-# analysis                                                                 #
-############################################################################
+######################################################
+# Perform PCA on food and exercise regimens with QCs #
+######################################################
 
-# Perform PCA on food and exercise regimens with QCs
+# Stats analyses are done by querying file names to extract data first                                                               #
 
 # Get QCs
 qc_names <- meta_all[meta_all[, "type"] == "QC", "file_name_neg"]
@@ -725,17 +724,88 @@ regimenD <- as.character(regimenD)
 
 # Create matrix containing data
 qc_sample_names <- c(qc_names, regimenA, regimenB, regimenC ,regimenD)
-pca_data <- sig_corr_qc_sample_neg[ ,qc_sample_names]
+pca_data <- sig_corr_qc_sample_neg[ , qc_sample_names]
 
 # Prepare block information for labelling data points
 regimen <- c(rep("QC", length(qc_names)), rep("Regimen A", length(regimenA)), rep("Regimen B", length(regimenB)), rep("Regimen C", length(regimenC)), rep("Regimen D", length(regimenD)))
 
 # Transpose data
 pca_data <- t(pca_data)
-# Add block information, QC and sample names to PCA data
+# Add regimen information to PCA data
 pca_data <- cbind(pca_data, regimen)
 
 write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
 pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on normalised negative QC and sample data')
 ggsave("pca_regimens.png")
+
+
+#########################
+# Normalise data to QCs #
+#########################
+
+# Get QC data
+qc_names <- meta_all[meta_all[, "type"] == "QC", "file_name_neg"]
+qc_names <- as.character(qc_names)
+qc_data <- sig_corr_qc_sample_neg[ ,qc_names]
+
+# Calculate average value for each QC peak
+qc_means <- rowMeans(qc_data)
+
+# Divide all data with QC data
+pca_data <- sig_corr_qc_sample_neg[ , qc_sample_names]
+# new_pca_data <- matrix(nrow = nrow(pca_data), ncol = ncol(pca_data))
+# colnames(new_pca_data) <- colnames(pca_data)
+# rownames(new_pca_data) <- rownames(pca_data)
+
+# Test
+pca_data <- cbind(pca_data, qc_means)
+pca_data <- as.matrix(pca_data)
+counter <- 0
+ans <- apply(pca_data, 1, function(x) {
+  counter <<- counter + 1
+  # print(x)
+  # print(paste("Length of x:", length(x)))
+  qc_average <- as.numeric(x[length(x)])
+  # print("##### End of matrix row #####")
+  # for(i in 1:length(x)-1) {
+  # print(x[length(x)])
+  #   print(x[i] / x[length(x)])
+  # }
+  stuff <- lapply(x, function (y) {
+    # print(paste("y:", y))
+    # qc_average <- as.numeric(y[length(y)])
+    # print(paste("qc_average: ", qc_average))
+    new_value <- y / qc_average
+    # print(paste("new value: ", new_value))
+    # print("#####")
+    return(new_value)
+  })
+  # print(paste("stuff: ", stuff))
+  # print(stuff)
+  stuff <- as.numeric(stuff)
+  # print(paste("length of stuff: ", length(stuff)))
+  # print(class(stuff))
+  # print(paste("counter:", counter))
+  pca_data[counter,] <<- stuff
+})
+
+# Do PCA
+pca_data <- pca_data[, -ncol(pca_data)]
+
+# Transpose data
+pca_data <- t(pca_data)
+# Add regimen information to PCA data
+pca_data <- cbind(pca_data, regimen)
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on QC-normalised negative QC and sample data')
+ggsave("pca_qc_normalised.png")
+
+##################################
+# Normalise data to time point 0 #
+##################################
+
+# Get all TP 0 data
+
