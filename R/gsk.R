@@ -753,16 +753,16 @@ qc_data <- sig_corr_qc_sample_neg[ ,qc_names]
 qc_means <- rowMeans(qc_data)
 
 # Divide all data with QC data
-pca_data <- sig_corr_qc_sample_neg[ , qc_sample_names]
+qcnorm_qc_sample_neg <- sig_corr_qc_sample_neg[ , qc_sample_names]
 # new_pca_data <- matrix(nrow = nrow(pca_data), ncol = ncol(pca_data))
 # colnames(new_pca_data) <- colnames(pca_data)
 # rownames(new_pca_data) <- rownames(pca_data)
 
 # Test
-pca_data <- cbind(pca_data, qc_means)
-pca_data <- as.matrix(pca_data)
+qcnorm_qc_sample_neg <- cbind(qcnorm_qc_sample_neg, qc_means)
+qcnorm_qc_sample_neg <- as.matrix(qcnorm_qc_sample_neg)
 counter <- 0
-ans <- apply(pca_data, 1, function(x) {
+ans <- apply(qcnorm_qc_sample_neg, 1, function(x) {
   counter <<- counter + 1
   # print(x)
   # print(paste("Length of x:", length(x)))
@@ -787,11 +787,14 @@ ans <- apply(pca_data, 1, function(x) {
   # print(paste("length of stuff: ", length(stuff)))
   # print(class(stuff))
   # print(paste("counter:", counter))
-  pca_data[counter,] <<- stuff
+  qcnorm_qc_sample_neg[counter,] <<- stuff
 })
 
+# Clean up
+qcnorm_qc_sample_neg <- qcnorm_qc_sample_neg[, -ncol(qcnorm_qc_sample_neg)]
+
 # Do PCA
-pca_data <- pca_data[, -ncol(pca_data)]
+pca_data <- qcnorm_qc_sample_neg
 
 # Transpose data
 pca_data <- t(pca_data)
@@ -803,9 +806,64 @@ pca_data <- read.table(file = "pca_data.csv", sep=",")
 autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on QC-normalised negative QC and sample data')
 ggsave("pca_qc_normalised.png")
 
+
 ##################################
 # Normalise data to time point 0 #
 ##################################
 
 # Get all TP 0 data
+tp0_sample_names <- meta_all[meta_all[, "Timepoint..PIMS."] == 0, "file_name_neg"]
+tp0_sample_names <- as.character(tp0_sample_names)
+tp0_sample_names <- na.omit(tp0_sample_names)
+tp0_data <- qcnorm_qc_sample_neg[ ,tp0_sample_names]
 
+# Calculate average value for each TP0 peak
+tp0_means <- rowMeans(tp0_data)
+
+# Divide all data with tp0 mean
+tp0_qc_sample_neg <- cbind(qcnorm_qc_sample_neg, tp0_means)
+tp0_qc_sample_neg <- as.matrix(tp0_qc_sample_neg)
+counter <- 0
+ans <- apply(tp0_qc_sample_neg, 1, function(x) {
+  counter <<- counter + 1
+  # print(x)
+  # print(paste("Length of x:", length(x)))
+  tp0_average <- as.numeric(x[length(x)])
+  # print("##### End of matrix row #####")
+  # for(i in 1:length(x)-1) {
+  # print(x[length(x)])
+  #   print(x[i] / x[length(x)])
+  # }
+  stuff <- lapply(x, function (y) {
+    # print(paste("y:", y))
+    # qc_average <- as.numeric(y[length(y)])
+    # print(paste("qc_average: ", qc_average))
+    new_value <- y / tp0_average
+    # print(paste("new value: ", new_value))
+    # print("#####")
+    return(new_value)
+  })
+  # print(paste("stuff: ", stuff))
+  # print(stuff)
+  stuff <- as.numeric(stuff)
+  # print(paste("length of stuff: ", length(stuff)))
+  # print(class(stuff))
+  # print(paste("counter:", counter))
+  tp0_qc_sample_neg[counter,] <<- stuff
+})
+
+# Clean up
+tp0_qc_sample_neg <- tp0_qc_sample_neg[, -ncol(tp0_qc_sample_neg)]
+
+# Do PCA
+pca_data <- tp0_qc_sample_neg
+
+# Transpose data
+pca_data <- t(pca_data)
+# Add regimen information to PCA data
+pca_data <- cbind(pca_data, regimen)
+
+write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+pca_data <- read.table(file = "pca_data.csv", sep=",")
+autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on TP0-normalised negative QC and sample data', frame.type = 'norm')
+ggsave("pca_qc_TP0_normalised.png")
