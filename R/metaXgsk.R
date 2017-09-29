@@ -77,8 +77,32 @@ para <- new("metaXpara")
 para <- importDataFromXCMS(para, file="neg_peaklist.csv")
 # Check data import
 head(para@rawPeaks[,1:20])
+idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
+1   1 57.97605 57.97542 57.97685   64.9456   59.1596   92.6520    369        92        86        93        92    2.083333           314657.3
+2   2 59.01426 59.01381 59.01453   64.6192   62.7960   67.1400    371        92        93        93        93    0.000000          2214161.1
+
+# Create sample list file that looks like this:
+sample  batch   class   order
+batch01_QC01    1       NA      1
+batch01_QC02    1       NA      2
+batch01_QC03    1       NA      3
+batch01_C05     1       C       4
+batch01_S07     1       S       5
+batch01_C10     1       C       6
+
+# Get batch metadata from sample names
+sample <- meta_all[, "file_name_neg"]
+batch <- meta_all[, "block"]
+class <- meta_all[, "Regimen"]
+order <- meta_all[, "order"]
+sampleListFile <- cbind(sample, batch, class, order)
+sampleListFile <- as.character(sampleListFile)
+
+# Set sample list file
+sampleListFile(para) <- sampleListFile
 
 
-# Create sample list file
-
-
+# Pre-processing raw peak data
+para <- reSetPeaksData(para)
+p <- filterPeaks(para, ratio=0.2)
+p <- filterQCPeaks(para, ratio=0.5)
