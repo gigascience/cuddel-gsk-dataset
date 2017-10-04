@@ -62,19 +62,36 @@ neg_peaklist$idx <- seq.int(nrow(neg_peaklist))
 # Move index to left hand side of data frame
 neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 
+# The peak list needs to look like this from the metaX tutorial:
+head(para@rawPeaks[,1:4])
+name batch01_QC01 batch01_QC02 batch01_QC03
+1  78.02055 14023.0      13071.0     15270.0
+2 452.00345 22455.0      10737.0     27397.0
+3 138.96337 6635.4       8062.3      6294.6
+
+# However, the peak list currently looks like this:
+> head(neg_peaklist[,1:20])
+idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
+1   1 57.97605 57.97542 57.97685   64.9456   59.1596   92.6520    369        92        86        93        92    2.083333           314657.3
+2   2 59.01426 59.01381 59.01453   64.6192   62.7960   67.1400    371        92        93        93        93    0.000000          2214161.1
+3   3 61.98876 61.98832 61.98905 1393.2574 1390.5089 1395.7195    371        92        93        93        93    0.000000          4573570.5
+
+# List of columns to delete
+# del_cols <- c("idx", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks")
+rawPeaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("idx", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks")]
 
 #############################
 # Load peak data into metaX #
 #############################
 
 # Output peak intensity data from xcms object
-write.table(neg_peaklist, file = "neg_peaklist.csv", sep =",", row.names = TRUE, col.names = TRUE)
+write.table(rawPeaks, file = "rawPeaks.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 # Create new metaXpara object
 para <- new("metaXpara")
 
 # Import data from XCMS into metaX
-para <- importDataFromXCMS(para, file="neg_peaklist.csv")
+para <- importDataFromXCMS(para, file="rawPeaks.csv")
 # Check data import
 head(para@rawPeaks[,1:20])
 idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
@@ -104,5 +121,7 @@ sampleListFile(para) <- sampleListFile
 
 # Pre-processing raw peak data
 para <- reSetPeaksData(para)
+Error in file(file, "rt") : invalid 'description' argument
+
 p <- filterPeaks(para, ratio=0.2)
 p <- filterQCPeaks(para, ratio=0.5)
