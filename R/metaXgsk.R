@@ -122,3 +122,19 @@ write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = 
 sfile <- paste(datadir, "gsk/raw/esi_neg/netcdf/sampleListFile.tab", sep="")
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
+
+#########################
+# Impute missing values #
+#########################
+
+para <- missingValueImpute(para,method="knn")
+
+
+##################
+# Normalise data #
+##################
+
+res <- doQCRLSC(para, cpu=1)
+
+
+
