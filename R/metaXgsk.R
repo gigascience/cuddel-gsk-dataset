@@ -114,6 +114,7 @@ sample <- meta_all[, "file_name_neg"]
 sample <- as.character(sample)
 batch <- meta_all[, "block"]
 class <- meta_all[, "Regimen"]
+class <- as.character(class)
 order <- meta_all[, "order"]
 sampleListFile <- cbind(sample, batch, class, order)
 sampleListFile <- as.matrix(sampleListFile)
@@ -123,17 +124,26 @@ sfile <- paste(datadir, "gsk/raw/esi_neg/netcdf/sampleListFile.tab", sep="")
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
 
+
 ######################################################
 # Remove metabolite features detected in <50% of QCs #
 ######################################################
 
 para <- filterQCPeaks(para, ratio = 0.5)
 
+
 #########################
 # Impute missing values #
 #########################
 
-para <- missingValueImpute(para,method="knn")
+para <- missingValueImpute(para, method="knn")
+
+
+###################
+# Remove outliers #
+###################
+
+para <- autoRemoveOutlier(para, valueID="value")
 
 
 ##################
@@ -142,5 +152,24 @@ para <- missingValueImpute(para,method="knn")
 
 res <- doQCRLSC(para, cpu=1)
 
+para <- metaX::normalize(para, method="pqn", valueID="value")
+
+
+#######
+# PCA #
+#######
+
+para <- transformation(para, valueID = "value")
+metaX::plotPCA(para, valueID = "value", scale = "pareto", center = TRUE, rmQC = FALSE)
+
+
+
+###
+
+#########################################
+# metaXpipe whole data analysis process #
+#########################################
+
+p <- metaXpipe(para, plsdaPara=plsdaPara, cvFilter=0.3,remveOutlier = TRUE, outTol = 1.2, doQA = TRUE, doROC = TRUE, qcsc = 1, nor.method = "pqn", pclean = TRUE, t = 1, scale = "uv",)
 
 
