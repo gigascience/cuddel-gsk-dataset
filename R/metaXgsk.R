@@ -78,14 +78,16 @@ idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg bl
 
 # List of columns to delete
 # del_cols <- c("idx", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks")
-rawPeaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("idx", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks")]
+rawPeaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("mz", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks", "block1neg", "block2neg", "block3neg", "block4neg", "percent_nas")]
+# Rename idx column to name
+colnames(rawPeaks)[1] <- "name"
 
 #############################
 # Load peak data into metaX #
 #############################
 
 # Output peak intensity data from xcms object
-write.table(rawPeaks, file = "rawPeaks.csv", sep =",", row.names = TRUE, col.names = TRUE)
+write.table(rawPeaks, file = "rawPeaks.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
 
 # Create new metaXpara object
 para <- new("metaXpara")
@@ -109,19 +111,14 @@ batch01_C10     1       C       6
 
 # Get batch metadata from sample names
 sample <- meta_all[, "file_name_neg"]
+sample <- as.character(sample)
 batch <- meta_all[, "block"]
 class <- meta_all[, "Regimen"]
 order <- meta_all[, "order"]
 sampleListFile <- cbind(sample, batch, class, order)
-sampleListFile <- as.character(sampleListFile)
+sampleListFile <- as.matrix(sampleListFile)
 
-# Set sample list file
-sampleListFile(para) <- sampleListFile
-
-
-# Pre-processing raw peak data
+write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = FALSE, col.names = TRUE)
+sfile <- paste(datadir, "gsk/raw/esi_neg/netcdf/sampleListFile.tab", sep="")
+sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
-Error in file(file, "rt") : invalid 'description' argument
-
-p <- filterPeaks(para, ratio=0.2)
-p <- filterQCPeaks(para, ratio=0.5)
