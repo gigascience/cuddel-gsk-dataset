@@ -123,6 +123,12 @@ sfile <- paste(datadir, "gsk/raw/esi_neg/netcdf/sampleListFile.tab", sep="")
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
 
+######################################################
+# Remove metabolite features detected in <50% of QCs #
+######################################################
+
+para <- filterQCPeaks(para, ratio = 0.5)
+
 #########################
 # Impute missing values #
 #########################
