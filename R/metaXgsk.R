@@ -129,7 +129,7 @@ para <- reSetPeaksData(para)
 # Remove metabolite features detected in <50% of QCs #
 ######################################################
 
-para <- filterQCPeaks(para, ratio = 0.5)
+# para <- filterQCPeaks(para, ratio = 0.5)
 
 
 #########################
@@ -143,26 +143,28 @@ para <- missingValueImpute(para, method="knn")
 # Remove outliers #
 ###################
 
-para <- autoRemoveOutlier(para, valueID="value")
+# para <- autoRemoveOutlier(para, valueID="value")
 
 
 ##################
 # Normalise data #
 ##################
 
-res <- doQCRLSC(para, cpu=1)
+para <- doQCRLSC(para, cpu = 1)
 
-para <- metaX::normalize(para, method="pqn", valueID="value")
+# Check normalisation
+getPeaksTable(para, valueID="value")
+getPeaksTable(para, valueID="valueNorm")
+
+# para <- metaX::normalize(para, method="pqn", valueID="value")
 
 
 #######
 # PCA #
 #######
 
-para <- transformation(para, valueID = "value")
-metaX::plotPCA(para, valueID = "value", scale = "pareto", center = TRUE, rmQC = FALSE)
-
-
+para <- transformation(para, valueID = "valueNorm")
+metaX::plotPCA(para, valueID = "valueNorm", scale = "pareto", center = TRUE, rmQC = FALSE)
 
 ###
 
