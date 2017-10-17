@@ -129,14 +129,14 @@ para <- reSetPeaksData(para)
 # Remove metabolite features detected in <50% of QCs #
 ######################################################
 
-# para <- filterQCPeaks(para, ratio = 0.5)
+para <- filterQCPeaks(para, ratio = 0.5)
 
 
 #########################
 # Impute missing values #
 #########################
 
-para <- missingValueImpute(para, method="knn")
+para <- missingValueImpute(para, method = "knn")
 
 
 ###################
@@ -157,13 +157,11 @@ getPeaksTable(para, valueID="value")
 getPeaksTable(para, valueID="valueNorm")
 
 # para <- metaX::normalize(para, method="pqn", valueID="value")
-
-
 #######
 # PCA #
 #######
 
-para <- transformation(para, valueID = "valueNorm")
+para <- transformation(para$metaXpara, valueID = "valueNorm")
 metaX::plotPCA(para, valueID = "valueNorm", scale = "pareto", center = TRUE, rmQC = FALSE)
 
 ###
