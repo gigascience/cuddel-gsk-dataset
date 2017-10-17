@@ -641,24 +641,19 @@ ID             sample       value batch class order
 6 51 GSK_neg_block1_09r    47954.21     1    NA     1
 
 # Get signal corrected peak data
-peak_data <- res$metaXpara
-peak_data <- peak_data@peaksData
-peak_data <- peak_data[order(peak_data$sample),]
-sig_corr_qc_sample_neg <- matrix(peak_data[,"value"], nrow = 506, ncol = 371)
-sample_names <- peak_data[, "sample"]
-sample_names <- unique(sample_names)
-colnames(sig_corr_qc_sample_neg) <- sample_names
-sig_corr_qc_sample_neg <- cbind(peak_data[1:506, "ID"], sig_corr_qc_sample_neg)
-colnames(sig_corr_qc_sample_neg) <- c("ID", colnames(sig_corr_qc_sample_neg)[-1])
-write.table(sig_corr_qc_sample_neg, file = "sig_corr_qc_sample_neg.csv", sep =",", row.names = TRUE, col.names = TRUE)
-sig_corr_qc_sample_neg <- read.table(file = "sig_corr_qc_sample_neg.csv", sep=",")
-sig_corr_qc_sample_neg <- sig_corr_qc_sample_neg[naturalorder(sig_corr_qc_sample_neg$ID),]
-rownames(sig_corr_qc_sample_neg) <- sig_corr_qc_sample_neg$ID
-# Delete first ID column
-sig_corr_qc_sample_neg$ID <- NULL
+para <- transformation(res$metaXpara, valueID = "valueNorm")
+peak_data <- getPeaksTable(para, valueID = "valueNorm")
+# Use sample column as rownames
+rownames(peak_data) <- peak_data$sample
+# Remove sample, class, batch and order columns
+drop_cols <- c("sample", "class", "batch", "order")
+peak_data <- peak_data[ , !(names(peak_data) %in% drop_cols)]
+# Transpose data
+peak_data <- t(peak_data)
+# Order data based on rownames (which are peak IDs)
+peak_data <- peak_data[naturalorder(rownames(peak_data)),]
 
-pca_data <- sig_corr_qc_sample_neg
-
+pca_data <- peak_data
 # Prepare block information for labelling data points
 block <- integer(0)
 sample_names <- colnames(pca_data)
@@ -724,7 +719,7 @@ regimenD <- as.character(regimenD)
 
 # Create matrix containing data
 qc_sample_names <- c(qc_names, regimenA, regimenB, regimenC ,regimenD)
-pca_data <- sig_corr_qc_sample_neg[ , qc_sample_names]
+pca_data <- peak_data[ , qc_sample_names]
 
 # Prepare block information for labelling data points
 regimen <- c(rep("QC", length(qc_names)), rep("Regimen A", length(regimenA)), rep("Regimen B", length(regimenB)), rep("Regimen C", length(regimenC)), rep("Regimen D", length(regimenD)))
