@@ -91,6 +91,8 @@ write.table(rawPeaks, file = "rawPeaks.tab", sep ="\t", row.names = TRUE, col.na
 
 # Create new metaXpara object
 para <- new("metaXpara")
+outdir(para) <- "test"
+prefix(para) <- "gsk_"
 
 # Import data from XCMS into metaX
 para <- importDataFromXCMS(para, file="rawPeaks.csv")
@@ -150,13 +152,12 @@ para <- missingValueImpute(para, method = "knn")
 # Normalise data #
 ##################
 
-para <- doQCRLSC(para, cpu = 1)
+para <- doQCRLSC(para, cpu = 3)
 
 # Check normalisation
 getPeaksTable(para, valueID="value")
 getPeaksTable(para, valueID="valueNorm")
 
-# para <- metaX::normalize(para, method="pqn", valueID="value")
 #######
 # PCA #
 #######
@@ -164,7 +165,16 @@ getPeaksTable(para, valueID="valueNorm")
 para <- transformation(para$metaXpara, valueID = "valueNorm")
 metaX::plotPCA(para, valueID = "valueNorm", scale = "pareto", center = TRUE, rmQC = FALSE)
 
-###
+##########
+# PLS-DA #
+##########
+
+para <- transformation(para$metaXpara, valueID = "valueNorm")
+
+plsdaPara <- new("plsDAPara")
+plsdaPara@nperm <- 100
+plsda.res <- runPLSDA(para = para, plsdaPara = plsdaPara, sample = c("NA", "A", "B", "C", "D"), valueID = "valueNorm")
+
 
 #########################################
 # metaXpipe whole data analysis process #
