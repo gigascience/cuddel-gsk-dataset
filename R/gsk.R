@@ -735,6 +735,118 @@ autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regim
 ggsave("pca_regimens.png")
 
 
+#############################################################################
+# Perform Canonical Variate Analysis on food and exercise regimens with QCs #
+#############################################################################
+
+library(Morpho)
+
+ht(iris)
+Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
+1            5.1         3.5          1.4         0.2    setosa
+2            4.9         3.0          1.4         0.2    setosa
+3            4.7         3.2          1.3         0.2    setosa
+4            4.6         3.1          1.5         0.2    setosa
+5            5.0         3.6          1.4         0.2    setosa
+6            5.4         3.9          1.7         0.4    setosa
+7            4.6         3.4          1.4         0.3    setosa
+8            5.0         3.4          1.5         0.2    setosa
+9            4.4         2.9          1.4         0.2    setosa
+10           4.9         3.1          1.5         0.1    setosa
+141          6.7         3.1          5.6         2.4 virginica
+142          6.9         3.1          5.1         2.3 virginica
+143          5.8         2.7          5.1         1.9 virginica
+144          6.8         3.2          5.9         2.3 virginica
+145          6.7         3.3          5.7         2.5 virginica
+146          6.7         3.0          5.2         2.3 virginica
+147          6.3         2.5          5.0         1.9 virginica
+148          6.5         3.0          5.2         2.0 virginica
+149          6.2         3.4          5.4         2.3 virginica
+150          5.9         3.0          5.1         1.8 virginica
+
+vari <- iris[,1:4]
+h(vari)
+Sepal.Length Sepal.Width Petal.Length Petal.Width
+1          5.1         3.5          1.4         0.2
+2          4.9         3.0          1.4         0.2
+3          4.7         3.2          1.3         0.2
+4          4.6         3.1          1.5         0.2
+5          5.0         3.6          1.4         0.2
+6          5.4         3.9          1.7         0.4
+
+facto <- iris[,5]
+h(facto)
+[1] setosa setosa setosa setosa setosa setosa
+Levels: setosa versicolor virginica
+
+# Get signal corrected peak data
+para <- transformation(res$metaXpara, valueID = "valueNorm")
+peak_data <- getPeaksTable(para, valueID = "valueNorm")
+# Use sample column as rownames
+rownames(peak_data) <- peak_data$sample
+# Remove sample column
+drop_cols <- c("sample")
+peak_data <- peak_data[ , !(names(peak_data) %in% drop_cols)]
+
+# Prepare data for CVA
+vari <- peak_data[,4:ncol(peak_data)]
+
+facto <- character(0)
+for (i in 1:length(rownames(peak_data))) {
+  regimen <- meta_all[which(meta_all[,"file_name_neg"]==rownames(peak_data)[i]), "Regimen"]
+  regimen <- as.character(regimen)
+  if(is.na(regimen)) {
+    facto[i] <- "QC"
+  }
+  else {
+    facto[i] <- regimen
+  }
+}
+facto <- factor(facto)
+
+# Do CVA
+cva.1 <- CVA(vari, groups = facto)
+
+## get the typicality probabilities and resulting classifications - tagging
+## all specimens with a probability of < 0.01 as outliers (assigned to no class)
+typprobs <- typprobClass(cva.1$CVscores, groups = facto)
+print(typprobs)
+
+## visualize the CV scores by their groups estimated from (cross-validated)
+## typicality probabilities:
+png(file = "myplot_scatter.png", bg = "white")
+if (require(car)) {
+  scatterplot(cva.1$CVscores[,1], cva.1$CVscores[,2], groups=typprobs$groupaffinCV, smooth=FALSE, reg.line=FALSE)
+}
+dev.off()
+
+# plot the CVA
+png(file = "myplot.png", bg = "white")
+plot(cva.1$CVscores, col=facto, pch=as.numeric(facto), typ="n",asp=1,
+xlab=paste("1st canonical axis", paste(round(cva.1$Var[1,2],1),"%")),
+ylab=paste("2nd canonical axis", paste(round(cva.1$Var[2,2],1),"%")))
+
+text(cva.1$CVscores, as.character(facto), col=as.numeric(facto), cex=.7)
+
+# add chull (merge groups)
+for(jj in 1:length(levels(facto))){
+  ii=levels(facto)[jj]
+  kk=chull(cva.1$CVscores[facto==ii,1:2])
+  lines(cva.1$CVscores[facto==ii,1][c(kk, kk[1])],
+  cva.1$CVscores[facto==ii,2][c(kk, kk[1])], col=jj)
+}
+
+# add 80% ellipses
+if (require(car)) {
+  for(ii in 1:length(levels(facto))){
+    dataEllipse(cva.1$CVscores[facto==levels(facto)[ii],1],
+    cva.1$CVscores[facto==levels(facto)[ii],2],
+    add=TRUE,levels=.80, col=c(1:7)[ii])}
+  }
+dev.off()
+
+
+
 #########################
 # Normalise data to QCs #
 #########################
