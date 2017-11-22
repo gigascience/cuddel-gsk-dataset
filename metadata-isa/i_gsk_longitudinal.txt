@@ -1,10 +1,10 @@
 ONTOLOGY SOURCE REFERENCE
-Term Source Name	"PATO"	"EFO"	"OBI"	"UBERON"	"STATO"	"NCBITAXON"	"UO"	
-Term Source File	"http://data.bioontology.org/ontologies/PATO"	"http://data.bioontology.org/ontologies/EFO"	"http://data.bioontology.org/ontologies/OBI"	"http://data.bioontology.org/ontologies/UBERON"	"http://data.bioontology.org/ontologies/STATO"	"http://data.bioontology.org/ontologies/NCBITAXON"	"http://data.bioontology.org/ontologies/UO"	
-Term Source Version	"160"	"158"	"21"	"249"	"11"	"8"	"43"	
-Term Source Description	"Phenotypic Quality Ontology"	"Experimental Factor Ontology"	"Ontology for Biomedical Investigations"	"Uber Anatomy Ontology"	"Statistics Ontology"	"National Center for Biotechnology Information (NCBI) Organismal Classification"	"Units of Measurement Ontology"	
+Term Source Name	"PATO"	"EFO"	"OBI"	"UBERON"	"STATO"	"NCBITAXON"	"GALEN"	"UO"	
+Term Source File	"http://data.bioontology.org/ontologies/PATO"	"http://data.bioontology.org/ontologies/EFO"	"http://data.bioontology.org/ontologies/OBI"	"http://data.bioontology.org/ontologies/UBERON"	"http://data.bioontology.org/ontologies/STATO"	"http://data.bioontology.org/ontologies/NCBITAXON"	"http://data.bioontology.org/ontologies/GALEN"	"http://data.bioontology.org/ontologies/UO"	
+Term Source Version	"160"	"158"	"21"	"249"	"11"	"8"	"1"	"43"	
+Term Source Description	"Phenotypic Quality Ontology"	"Experimental Factor Ontology"	"Ontology for Biomedical Investigations"	"Uber Anatomy Ontology"	"Statistics Ontology"	"National Center for Biotechnology Information (NCBI) Organismal Classification"	"Galen Ontology"	"Units of Measurement Ontology"	
 INVESTIGATION
-Investigation Identifier	""
+Investigation Identifier	"1511321517564"
 Investigation Title	""
 Investigation Description	""
 Investigation Submission Date	""
