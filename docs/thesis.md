@@ -137,12 +137,11 @@ Broadhurst. Principal Component Analysis (PCA) (Section 1.4.2.3.5.2) was
 applied for the reduction of data dimensionality and the first 30
 Principal Components were used for Canonical Variate Analysis (Section
 1.4.2.3.5.3) The optimal number of Principal Components was selected by
-random permutation cross- validation, where the model was repeatedly
+random permutation cross-validation, where the model was repeatedly
 built on 70% of the total sample set (training set) and tested by
 projection of remaining 30% of samples through the model (test set). For
 each iteration of the cross-validation process, training/test samples
 were randomly assigned after stratification by regimen class.
-
 
 The entire data matrix was then split on the basis of time points to
 produce four subsets of data corresponding to time points 1, 4, 5 and 8.
