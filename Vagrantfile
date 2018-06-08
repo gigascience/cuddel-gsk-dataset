@@ -10,16 +10,11 @@ else
 end
 
 Vagrant.configure(2) do |config|
-
-  # Vagrant virtual environment box to build from
   config.vm.box = box
-
-  # URL from where config.vm.box will be fetched if not on user's system
-  # config.vm.box_url = box_url
+  config.vm.box_url = box_url
 
   # Cache packages to reduce provisioning time
   if Vagrant.has_plugin?("vagrant-cachier")
-    #Configure cached packages to be shared between instances of same base box
     config.cache.scope = :box
   end
 
@@ -51,9 +46,8 @@ Vagrant.configure(2) do |config|
     aws.ami = "ami-b85e86db" # selinux on
     aws.region = ENV['AWS_DEFAULT_REGION']
     aws.instance_type = "t2.micro"
-    aws.elastic_ip = ENV['AWS_GIGABLOG_ELASTIC_IP']
     aws.tags = {
-      'Name' => 'gigablog',
+      'Name' => 'GSK analysis',
       'Deployment' => 'test',
     }
     aws.security_groups = ENV['AWS_SECURITY_GROUPS']
@@ -75,7 +69,7 @@ Vagrant.configure(2) do |config|
     ####################################################
     chef.environment = "development"
 
-    if ENV['GIGABLOG_BOX'] == 'aws'
+    if ENV['CUDDEL_BOX'] == 'aws'
         chef.add_recipe "aws"
     else
         chef.add_recipe "vagrant"
@@ -83,20 +77,11 @@ Vagrant.configure(2) do |config|
 
     # You may also specify custom JSON attributes:
     chef.json = {
-      :gigablog_box => ENV['GIGABLOG_BOX'],
-      :environment => "vagrant",
-      :gigablog => {
-        :server_names => ["localhost"],
-        :log_dir => "/vagrant/log",
-      },
-      :nginx => {
-        :version => :latest,
-      }
+      :cuddel_box => ENV['CUDDEL_BOX'],
+      :environment => "vagrant"
     }
 
     # Additional chef settings to put in solo.rb
     chef.custom_config_path = "Vagrantfile.chef"
-
   end
-
 end

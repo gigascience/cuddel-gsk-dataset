@@ -18,7 +18,7 @@ vagrant_dir = node[:cuddel][:vagrant_dir]
 ############################
 
 service "iptables" do
-    action :start
+  action :start
 end
 
 iptables_rule 'prefix'
@@ -52,7 +52,7 @@ iptables_rule 'postfix'
 ###########################
 
 selinux_state 'permissive' do
-    action :permissive
+  action :permissive
 end
 
 # Add SELinux policies for GigaBlog
@@ -79,14 +79,14 @@ end
 
 # Create user accounts
 user_account node[:cuddel][:user1] do
-    comment   node[:cuddel][:user1_name]
-    ssh_keys  node[:cuddel][:user1_public_key]
+  comment   node[:cuddel][:user1_name]
+  ssh_keys  node[:cuddel][:user1_public_key]
 end
 
 group 'wheel' do
-    action  :modify
-    members [node[:cuddel][:user1]]
-    append  true
+  action  :modify
+  members [node[:cuddel][:user1]]
+  append  true
 end
 
 #########################
@@ -101,23 +101,23 @@ dirs = %w{
 }
 
 dirs.each do |component|
-    the_dir = "/vagrant/#{component}"
+  the_dir = "/vagrant/#{component}"
 
-    bash 'setup permissions' do
-        code <<-EOH
-        	# Check if directory exists
-            if [ -d #{the_dir} ]
-            then
-                # Will enter here if the_dir exists,
-                echo "#{the_dir} directory exists"
-                chmod -R ugo+rwx #{the_dir}
-            else
-                mkdir -p #{the_dir}
-                # chown -R nginx:gigablog-admin #{the_dir}
-                chmod -R ugo+rwx #{the_dir}
-            fi
-        EOH
-    end
+  bash 'setup permissions' do
+    code <<-EOH
+      # Check if directory exists
+      if [ -d #{the_dir} ]
+      then
+        # Will enter here if the_dir exists,
+        echo "#{the_dir} directory exists"
+        chmod -R ugo+rwx #{the_dir}
+      else
+        mkdir -p #{the_dir}
+        # chown -R nginx:gigablog-admin #{the_dir}
+        chmod -R ugo+rwx #{the_dir}
+      fi
+    EOH
+  end
 end
 
 
@@ -127,8 +127,8 @@ end
 
 # Disable root logins and password authentication
 bash 'Configure SSH' do
-    code <<-EOH
-        sed -i -- 's/#PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
-        sed -i -- 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
-    EOH
+  code <<-EOH
+    sed -i -- 's/#PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
+    sed -i -- 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+  EOH
 end
