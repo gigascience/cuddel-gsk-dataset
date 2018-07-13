@@ -7,8 +7,11 @@ library(ggfortify)
 library(metaX)
 library(VIM)
 
+# Set working directory
+wd <- setwd("/home/peter/metax/gsk/neg")
+
 # Let R know where GSK data set is located
-datadir = "/home/peter/"
+datadir <- "/home/peter/"
 
 ######################################
 # Read in metadata for data analysis #
@@ -77,17 +80,16 @@ idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg bl
 3   3 61.98876 61.98832 61.98905 1393.2574 1390.5089 1395.7195    371        92        93        93        93    0.000000          4573570.5
 
 # List of columns to delete
-# del_cols <- c("idx", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks")
-rawPeaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("mz", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks", "block1neg", "block2neg", "block3neg", "block4neg", "percent_nas")]
+neg_peaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("mz", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks", "block1neg", "block2neg", "block3neg", "block4neg", "percent_nas", "isotopes", "adduct", "pcgroup")]
 # Rename idx column to name
-colnames(rawPeaks)[1] <- "name"
+colnames(neg_peaks)[1] <- "name"
 
 #############################
 # Load peak data into metaX #
 #############################
 
 # Output peak intensity data from xcms object
-write.table(rawPeaks, file = "rawPeaks.tab", sep ="\t", row.names = TRUE, col.names = TRUE)
+write.table(neg_peaks, file = "new_peaks.csv", sep =",", row.names = TRUE, col.names = TRUE)
 
 # Create new metaXpara object
 para <- new("metaXpara")
@@ -95,14 +97,18 @@ outdir(para) <- "test"
 prefix(para) <- "gsk_"
 
 # Import data from XCMS into metaX
-para <- importDataFromXCMS(para, file="rawPeaks.csv")
+para <- importDataFromXCMS(para, file="neg_peaks.csv")
 # Check data import
 head(para@rawPeaks[,1:20])
-idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
-1   1 57.97605 57.97542 57.97685   64.9456   59.1596   92.6520    369        92        86        93        92    2.083333           314657.3
-2   2 59.01426 59.01381 59.01453   64.6192   62.7960   67.1400    371        92        93        93        93    0.000000          2214161.1
+name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_12r GSK_neg_block1_13r GSK_neg_block1_14r GSK_neg_block1_15r GSK_neg_block1_16r
+1    1           314657.3           253010.0           234015.0           229210.3           271279.5           225345.9           290000.1
+2    2          2214161.1          2213167.3          2262108.8          2285202.3          1992895.3          2245666.6          2200922.3
 
-# Create sample list file that looks like this:
+###########################
+# Create sample list file #
+###########################
+
+# Sample file needs to look like this:
 sample  batch   class   order
 batch01_QC01    1       NA      1
 batch01_QC02    1       NA      2
@@ -118,11 +124,11 @@ batch <- meta_all[, "block"]
 class <- meta_all[, "Regimen"]
 class <- as.character(class)
 order <- meta_all[, "order"]
-sampleListFile <- cbind(sample, batch, class, order)
-sampleListFile <- as.matrix(sampleListFile)
+sample_meta <- cbind(sample, batch, class, order)
+sample_meta <- as.matrix(sample_meta)
 
-write.table(sampleListFile, file = "sampleListFile.tab", sep ="\t", row.names = FALSE, col.names = TRUE)
-sfile <- paste(datadir, "gsk/raw/esi_neg/netcdf/sampleListFile.tab", sep="")
+write.table(sample_meta, file = "sample_meta.tab", sep ="\t", row.names = FALSE, col.names = TRUE)
+sfile <- paste(wd, "/sample_meta.tab", sep="")
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
 
