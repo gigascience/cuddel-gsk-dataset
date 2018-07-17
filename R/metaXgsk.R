@@ -6,9 +6,10 @@ library(mice)
 library(ggfortify)
 library(metaX)
 library(VIM)
+library(ropls)
 
 # Set working directory
-wd <- setwd("/home/peter/metax/gsk/neg")
+wd <- setwd("")
 
 # Let R know where GSK data set is located
 datadir <- "/home/peter/"
@@ -93,6 +94,7 @@ write.table(neg_peaks, file = "new_peaks.csv", sep =",", row.names = TRUE, col.n
 
 # Create new metaXpara object
 para <- new("metaXpara")
+# Set output directory
 outdir(para) <- "test"
 prefix(para) <- "gsk_"
 
@@ -176,16 +178,64 @@ metaX::plotPCA(para, valueID = "valueNorm", scale = "pareto", center = TRUE, rmQ
 ##########
 
 para <- transformation(para$metaXpara, valueID = "valueNorm")
-
 plsdaPara <- new("plsDAPara")
 plsdaPara@nperm <- 100
 plsda.res <- runPLSDA(para = para, plsdaPara = plsdaPara, sample = c("NA", "A", "B", "C", "D"), valueID = "valueNorm")
 
+#########
+# ROPLS #
+#########
+
+norm_peaks <- getPeaksTable(para, valueID="valueNorm")
+# Create dataMatrix object
+dataMatrix <- norm_peaks[c(1,5:ncol(norm_peaks))]
+rownames(dataMatrix) <- dataMatrix[,1]
+dataMatrix <- dataMatrix[ -c(1) ]
+
+# Create sampleMetadata object which needs to look like this:
+## > head(sampleMetadata)
+## age   bmi gender
+## HU_011  29 19.75      M
+## HU_014  59 22.64      F
+## HU_015  42 22.72      M
+## HU_017  41 23.03      M
+## HU_018  34 20.96      M
+## HU_019  35 23.41      M
+
+sampleMetadata <- norm_peaks[c(2:4)]
+rownames(sampleMetadata) <- norm_peaks[,1]
+
+# variableMetadata object contains the chemical identity of the peaks
+# Have not created this variableMetadata object
+
+# Run PCA
+gsk.pca <- opls(dataMatrix)
+
+# Save PCA plot
+pdf('gsk_pca.pdf')
+layout(matrix(1:4, nrow = 2, byrow = TRUE))
+for(typeC in c("overview", "outlier", "x-score", "x-loading"))
+plot(gsk.pca, typeVc = typeC, parDevNewL = FALSE)
+dev.off()
+
+# Check if there is an partitioning based on regimen class
+regimenFc <- sampleMetadata[, "class"]
+pdf('gsk_pca_regimen.pdf')
+plot(gsk.pca, typeVc = "x-score", parAsColFcVn = regimenFc, parEllipsesL = TRUE, parDevNewL = FALSE)
+dev.off()
+
+# Perform PLS and PLS-DA
+gsk.plsda <- opls(dataMatrix, regimenFc, permI = 100, plotL = FALSE)
+pdf('gsk_plsda_regimen.pdf')
+layout(matrix(1:4, nrow = 2, byrow = TRUE))
+for(typeC in c("permutation", "overview", "outlier", "x-score"))
+plot(gsk.plsda, typeVc = typeC, parDevNewL = FALSE)
+dev.off()
 
 #########################################
 # metaXpipe whole data analysis process #
 #########################################
 
-p <- metaXpipe(para, plsdaPara=plsdaPara, cvFilter=0.3,remveOutlier = TRUE, outTol = 1.2, doQA = TRUE, doROC = TRUE, qcsc = 1, nor.method = "pqn", pclean = TRUE, t = 1, scale = "uv",)
+p <- metaXpipe(para, plsdaPara=plsdaPara, cvFilter=0.3, remveOutlier = TRUE, outTol = 1.2, doQA = TRUE, doROC = TRUE, qcsc = 1, nor.method = "pqn", pclean = TRUE, t = 1, scale = "uv",)
 
 
