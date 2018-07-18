@@ -5,9 +5,12 @@
 
 library(MAIT)
 
-# Load data for test analysis
+# The MAIT workflow involves filling slots in the MAIT object and returning the updated MAIT object as output
+# First, load faahKO data into MAIT object
 library(faahKO)
 cdfFiles <- system.file("cdf", package="faahKO", mustWork=TRUE)
+
+# Detect peaks using xcms with the sampleProcessing function in MAIT
 MAIT <- sampleProcessing(dataDir = cdfFiles, project = "MAIT_Demo", snThres=2, rtStep=0.03)
 
 summary(MAIT)
