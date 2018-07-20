@@ -7,6 +7,7 @@ library(ggfortify)
 library(metaX)
 library(VIM)
 library(ropls)
+library(MAIT)
 
 # Set working directory
 wd <- setwd("")
@@ -68,17 +69,17 @@ neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 
 # The peak list needs to look like this from the metaX tutorial:
 head(para@rawPeaks[,1:4])
-name batch01_QC01 batch01_QC02 batch01_QC03
-1  78.02055 14023.0      13071.0     15270.0
-2 452.00345 22455.0      10737.0     27397.0
-3 138.96337 6635.4       8062.3      6294.6
+## name batch01_QC01 batch01_QC02 batch01_QC03
+## 1  78.02055 14023.0      13071.0     15270.0
+## 2 452.00345 22455.0      10737.0     27397.0
+## 3 138.96337 6635.4       8062.3      6294.6
 
 # However, the peak list currently looks like this:
-> head(neg_peaklist[,1:20])
-idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
-1   1 57.97605 57.97542 57.97685   64.9456   59.1596   92.6520    369        92        86        93        92    2.083333           314657.3
-2   2 59.01426 59.01381 59.01453   64.6192   62.7960   67.1400    371        92        93        93        93    0.000000          2214161.1
-3   3 61.98876 61.98832 61.98905 1393.2574 1390.5089 1395.7195    371        92        93        93        93    0.000000          4573570.5
+head(neg_peaklist[,1:20])
+## idx       mz    mzmin    mzmax        rt     rtmin     rtmax npeaks block1neg block2neg block3neg block4neg percent_nas GSK_neg_block1_09r
+## 1   1 57.97605 57.97542 57.97685   64.9456   59.1596   92.6520    369        92        86        93        92    2.083333           314657.3
+## 2   2 59.01426 59.01381 59.01453   64.6192   62.7960   67.1400    371        92        93        93        93    0.000000          2214161.1
+## 3   3 61.98876 61.98832 61.98905 1393.2574 1390.5089 1395.7195    371        92        93        93        93    0.000000          4573570.5
 
 # List of columns to delete
 neg_peaks <- neg_peaklist[ , !names(neg_peaklist) %in% c("mz", "mzmin", "mzmax", "rt", "rtmin", "rtmax", "npeaks", "block1neg", "block2neg", "block3neg", "block4neg", "percent_nas", "isotopes", "adduct", "pcgroup")]
@@ -96,28 +97,28 @@ write.table(neg_peaks, file = "new_peaks.csv", sep =",", row.names = TRUE, col.n
 para <- new("metaXpara")
 # Set output directory
 outdir(para) <- "test"
-prefix(para) <- "gsk_"
+prefix(para) <- "gsk"
 
 # Import data from XCMS into metaX
 para <- importDataFromXCMS(para, file="neg_peaks.csv")
 # Check data import
 head(para@rawPeaks[,1:20])
-name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_12r GSK_neg_block1_13r GSK_neg_block1_14r GSK_neg_block1_15r GSK_neg_block1_16r
-1    1           314657.3           253010.0           234015.0           229210.3           271279.5           225345.9           290000.1
-2    2          2214161.1          2213167.3          2262108.8          2285202.3          1992895.3          2245666.6          2200922.3
+## name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_12r GSK_neg_block1_13r GSK_neg_block1_14r GSK_neg_block1_15r GSK_neg_block1_16r
+## 1    1           314657.3           253010.0           234015.0           229210.3           271279.5           225345.9           290000.1
+## 2    2          2214161.1          2213167.3          2262108.8          2285202.3          1992895.3          2245666.6          2200922.3
 
 ###########################
 # Create sample list file #
 ###########################
 
 # Sample file needs to look like this:
-sample  batch   class   order
-batch01_QC01    1       NA      1
-batch01_QC02    1       NA      2
-batch01_QC03    1       NA      3
-batch01_C05     1       C       4
-batch01_S07     1       S       5
-batch01_C10     1       C       6
+## sample  batch   class   order
+## batch01_QC01    1       NA      1
+## batch01_QC02    1       NA      2
+## batch01_QC03    1       NA      3
+## batch01_C05     1       C       4
+## batch01_S07     1       S       5
+## batch01_C10     1       C       6
 
 # Get batch metadata from sample names
 sample <- meta_all[, "file_name_neg"]
@@ -140,6 +141,9 @@ para <- reSetPeaksData(para)
 ######################################################
 
 para <- filterQCPeaks(para, ratio = 0.5)
+## Remove peaks which the percent is more than 0.5 with intensity are NA!
+## 1216
+## Save the removed peaks to file: test/gsk-filterQCPeaks
 
 
 #########################
@@ -147,6 +151,32 @@ para <- filterQCPeaks(para, ratio = 0.5)
 #########################
 
 para <- missingValueImpute(para, method = "knn")
+## missingValueImpute: value
+## Wed Jul 18 14:12:08 2018        Missing value imputation for 'value'
+## Missing value in total: 118587
+## Missing value in QC sample: 21461
+## Missing value in non-QC sample: 97126
+## Wed Jul 18 14:12:08 2018        The ratio of missing value: 16.6654%
+## Cluster size 1831 broken into 1821 10
+## Cluster size 1821 broken into 1800 21
+## Cluster size 1800 broken into 87 1713
+## Done cluster 87
+## Cluster size 1713 broken into 1467 246
+## Done cluster 1467
+## Done cluster 246
+## Done cluster 1713
+## Done cluster 1800
+## Done cluster 21
+## Done cluster 1821
+## Done cluster 10
+## <=0: 142
+## Missing value in total after missing value inputation: 0
+## <=0 value in total after missing value inputation: 0
+## Warning message:
+## In knnimp(x, k, maxmiss = rowmax, maxp = maxp) :
+## 87 rows with more than 50 % entries missing;
+## mean imputation used for these rows
+
 
 
 ###################
@@ -188,8 +218,8 @@ plsda.res <- runPLSDA(para = para, plsdaPara = plsdaPara, sample = c("NA", "A", 
 
 norm_peaks <- getPeaksTable(para, valueID="valueNorm")
 # Create dataMatrix object
-dataMatrix <- norm_peaks[c(1,5:ncol(norm_peaks))]
-rownames(dataMatrix) <- dataMatrix[,1]
+dataMatrix <- norm_peaks[c(1, 5:ncol(norm_peaks))]
+rownames(dataMatrix) <- dataMatrix[, 1]
 dataMatrix <- dataMatrix[ -c(1) ]
 
 # Create sampleMetadata object which needs to look like this:
@@ -203,7 +233,7 @@ dataMatrix <- dataMatrix[ -c(1) ]
 ## HU_019  35 23.41      M
 
 sampleMetadata <- norm_peaks[c(2:4)]
-rownames(sampleMetadata) <- norm_peaks[,1]
+rownames(sampleMetadata) <- norm_peaks[, 1]
 
 # variableMetadata object contains the chemical identity of the peaks
 # Have not created this variableMetadata object
@@ -231,6 +261,34 @@ layout(matrix(1:4, nrow = 2, byrow = TRUE))
 for(typeC in c("permutation", "overview", "outlier", "x-score"))
 plot(gsk.plsda, typeVc = typeC, parDevNewL = FALSE)
 dev.off()
+
+
+###########################################
+# Perform univariate statistical analysis #
+###########################################
+
+# Confirm regimens in excel spreadsheet
+## A = food yes, exercise no
+## B = food no, exercise no
+## C = food yes, exercise yes
+## D = food no, exercise yes
+
+# However, in PhD thesis it is:
+## A = food yes, exercise no
+## B = food no, exercise yes
+## C = food yes, exercise yes
+## D = food no, exercise no
+
+ratioPairs(para) <- "A:B"
+# Check norm values are in para object
+getPeaksTable(para, valueID="valueNorm")
+
+#addValueNorm(para) <- para
+para <- transformation(para$metaXpara, valueID = "valueNorm")
+plsdaPara <- new("plsDAPara")
+plsdaPara@nperm <- 10
+plsda.res <- runPLSDA(para = para, plsdaPara = plsdaPara, sample = c("NA", "A", "B", "C", "D"), valueID = "valueNorm")
+res <- peakStat(para, plsdaPara, doROC = TRUE)
 
 #########################################
 # metaXpipe whole data analysis process #
