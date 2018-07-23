@@ -113,3 +113,62 @@ cvvisNeg5 <- showPC(cvvisNeg5, proc$PCs[, 1:5], proc$mshape)
 deformGrid3d(cvvis5, cvvisNeg5, ngrid = 0)
 
 ## End(Not run)
+
+####
+
+# Test PCA analysis in morpho package
+
+data(iris)
+vari <- iris[, 1:4]
+facto <- iris[, 5]
+pca.1 <-groupPCA(vari, groups=facto, rounds=100, mc.cores=1)
+
+### plot scores
+if (require(car)) {
+    pdf('scatterplotMatrix.pdf')
+    scatterplotMatrix(pca.1$Scores, groups=facto, ellipse=TRUE,
+    by.groups=TRUE, var.labels=c("PC1", "PC2", "PC3"))
+    dev.off()
+}
+
+####
+
+# another landmark based example in 3D:
+data(boneData)
+groups <- name2factor(boneLM, which=3:4)
+head(groups)
+## [1] ch_fe ch_fe ch_fe ch_fe ch_fe ch_fe
+## Levels: ch_fe ch_ma eu_fe eu_ma
+
+proc <- procSym(boneLM)
+cvall <- CVA(proc$orpdata, groups)
+
+#' ## visualize a shape change from score -5 to 5:
+cvvis5 <- 5*matrix(cvall$CVvis[, 1], nrow(cvall$Grandm), ncol(cvall$Grandm))+cvall$Grandm
+cvvisNeg5 <- -5*matrix(cvall$CVvis[, 1], nrow(cvall$Grandm), ncol(cvall$Grandm))+cvall$Grandm
+# }
+# NOT RUN {
+#visualize it
+deformGrid3d(cvvis5, cvvisNeg5, ngrid = 0)
+# }
+# NOT RUN {
+#for using (e.g. the first 5) PCscores, one will do:
+cvall <- CVA(proc$PCscores[, 1:5], groups)
+head(proc$PCscores[, 1:5])
+## PC1          PC2          PC3          PC4          PC5
+## skull_0144_ch_fe 0.032385579 -0.006687871 -0.019071891 -0.010079025 -0.020413868
+## skull_0149_ch_fe 0.053375114 -0.010885558 -0.013503190  0.009357859 -0.005599557
+## skull_0150_ch_fe 0.047636357 -0.028018847 -0.004376455  0.007873201  0.016918763
+## skull_0152_ch_fe 0.081384812 -0.034833964  0.031245020  0.006269748  0.015588755
+## skull_0157_ch_fe 0.004453751 -0.014276104 -0.001606326  0.016094292 -0.012025064
+## skull_0164_ch_fe 0.074665565  0.008102766  0.009828817  0.009840437 -0.001317569
+
+#' ## visualize a shape change from score -5 to 5:
+cvvis5 <- 5*cvall$CVvis[, 1]+cvall$Grandm
+cvvisNeg5 <- -5*cvall$CVvis[, 1]+cvall$Grandm
+cvvis5 <- showPC(cvvis5, proc$PCs[, 1:5], proc$mshape)
+cvvisNeg5 <- showPC(cvvisNeg5, proc$PCs[,1:5], proc$mshape)
+# }
+# NOT RUN {
+#visualize it
+deformGrid3d(cvvis5,cvvisNeg5,ngrid = 0)
