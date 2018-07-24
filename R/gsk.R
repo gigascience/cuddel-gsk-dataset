@@ -603,15 +603,14 @@ ggsave("pretreated_qc_knn_neg_samples_pca.png")
 # 4 analytical blocks are removed by XCMS during peak alignment.
 
 # Data for metaX signal correction needs to look like this:
-> head(signal_correction_data[,1:4])
-name batch01_QC01 batch01_QC02 batch01_QC03
-1  78.02055      14023.0      13071.0      15270.0
-2 452.00345      22455.0      10737.0      27397.0
-3 138.96337       6635.4       8062.3       6294.6
-4  73.53838      26493.0      26141.0      25944.0
-5 385.12885      57625.0      56964.0      59045.0
-6 237.02815     105490.0      90166.0      92315.0
-
+head(signal_correction_data[,1:4])
+## name batch01_QC01 batch01_QC02 batch01_QC03
+## 1  78.02055      14023.0      13071.0      15270.0
+## 2 452.00345      22455.0      10737.0      27397.0
+## 3 138.96337       6635.4       8062.3       6294.6
+## 4  73.53838      26493.0      26141.0      25944.0
+## 5 385.12885      57625.0      56964.0      59045.0
+## 6 237.02815     105490.0      90166.0      92315.0
 
 signal_corr_data <- pretreated_qc_knn_sample_peaklist
 
@@ -619,13 +618,13 @@ signal_corr_data <- pretreated_qc_knn_sample_peaklist
 signal_corr_data <- cbind(rownames(signal_corr_data), signal_corr_data)
 # Check
 head(signal_corr_data[ , 1:4])
-        GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
-2  "2"  "2214161.06684043" "2213167.30024468" "2200922.27885106"
-11 "11" "80404.2911244445" "90185.9247093023" "80860.0580355555"
-12 "12" "1052155.88762273" "1013478.89673721" "968455.803136363"
-46 "46" "95204.1498043478" "95296.5965466666" "96498.8371822222"
-47 "47" "37436017.503675"  "36930624.0750681" "37326859.8432458"
-51 "51" "47954.2056"       "43746.2516363636" "53033.2722418605"
+##         GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
+## 2  "2"  "2214161.06684043" "2213167.30024468" "2200922.27885106"
+## 11 "11" "80404.2911244445" "90185.9247093023" "80860.0580355555"
+## 12 "12" "1052155.88762273" "1013478.89673721" "968455.803136363"
+## 46 "46" "95204.1498043478" "95296.5965466666" "96498.8371822222"
+## 47 "47" "37436017.503675"  "36930624.0750681" "37326859.8432458"
+## 51 "51" "47954.2056"       "43746.2516363636" "53033.2722418605"
 
 # Add colname for first column
 col_names <- c("name", colnames(signal_corr_data)[-1])
@@ -659,34 +658,34 @@ rawPeaks(para) <- read.delim(pfile, check.names = FALSE)
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
 # para <- missingValueImpute(para)
-res <- doQCRLSC(para, cpu=12)
-plotQCRLSC(res$metaXpara)
+para <- doQCRLSC(para, cpu=12)
+plotQCRLSC(para$metaXpara)
 
 
 #####################################
 # Do PCA to check signal correction #
 #####################################
 
-> head(rsd_knn_qc_neg[, 1:4])
-GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r GSK_neg_block1_21r
-2          2214161.07         2213167.30         2200922.28         2229604.08
-11           80404.29           90185.92           80860.06           70636.49
-12         1052155.89         1013478.90          968455.80          955786.38
-46           95204.15           95296.60           96498.84           76137.69
-47        37436017.50        36930624.08        37326859.84        34001468.40
-51           47954.21           53991.18           53033.27           34404.22
+head(rsd_knn_qc_neg[, 1:4])
+##    GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r GSK_neg_block1_21r
+## 2          2214161.07         2213167.30         2200922.28         2229604.08
+## 11           80404.29           90185.92           80860.06           70636.49
+## 12         1052155.89         1013478.90          968455.80          955786.38
+## 46           95204.15           95296.60           96498.84           76137.69
+## 47        37436017.50        36930624.08        37326859.84        34001468.40
+## 51           47954.21           53991.18           53033.27           34404.22
 
-> head(peak_data)
-ID             sample       value batch class order
-1  2 GSK_neg_block1_09r  2214161.07     1    NA     1
-2 11 GSK_neg_block1_09r    80404.29     1    NA     1
-3 12 GSK_neg_block1_09r  1052155.89     1    NA     1
-4 46 GSK_neg_block1_09r    95204.15     1    NA     1
-5 47 GSK_neg_block1_09r 37436017.50     1    NA     1
-6 51 GSK_neg_block1_09r    47954.21     1    NA     1
+head(peak_data)
+##   ID             sample       value batch class order
+## 1  2 GSK_neg_block1_09r  2214161.07     1    NA     1
+## 2 11 GSK_neg_block1_09r    80404.29     1    NA     1
+## 3 12 GSK_neg_block1_09r  1052155.89     1    NA     1
+## 4 46 GSK_neg_block1_09r    95204.15     1    NA     1
+## 5 47 GSK_neg_block1_09r 37436017.50     1    NA     1
+## 6 51 GSK_neg_block1_09r    47954.21     1    NA     1
 
 # Get signal corrected peak data
-para <- transformation(res$metaXpara, valueID = "valueNorm")
+para <- transformation(para$metaXpara, valueID = "valueNorm")
 norm_peak_data <- getPeaksTable(para, valueID = "valueNorm")
 # Use sample column as rownames
 rownames(norm_peak_data) <- norm_peak_data$sample
@@ -763,45 +762,43 @@ ggsave("norm_neg_qc_sample_pca_coloured_blocks.png")
 # Perform Canonical Variate Analysis on food and exercise regimens with QCs #
 #############################################################################
 
-library(Morpho)
-
 ht(iris)
-Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
-1            5.1         3.5          1.4         0.2    setosa
-2            4.9         3.0          1.4         0.2    setosa
-3            4.7         3.2          1.3         0.2    setosa
-4            4.6         3.1          1.5         0.2    setosa
-5            5.0         3.6          1.4         0.2    setosa
-6            5.4         3.9          1.7         0.4    setosa
-7            4.6         3.4          1.4         0.3    setosa
-8            5.0         3.4          1.5         0.2    setosa
-9            4.4         2.9          1.4         0.2    setosa
-10           4.9         3.1          1.5         0.1    setosa
-141          6.7         3.1          5.6         2.4 virginica
-142          6.9         3.1          5.1         2.3 virginica
-143          5.8         2.7          5.1         1.9 virginica
-144          6.8         3.2          5.9         2.3 virginica
-145          6.7         3.3          5.7         2.5 virginica
-146          6.7         3.0          5.2         2.3 virginica
-147          6.3         2.5          5.0         1.9 virginica
-148          6.5         3.0          5.2         2.0 virginica
-149          6.2         3.4          5.4         2.3 virginica
-150          5.9         3.0          5.1         1.8 virginica
+## Sepal.Length Sepal.Width Petal.Length Petal.Width   Species
+## 1            5.1         3.5          1.4         0.2    setosa
+## 2            4.9         3.0          1.4         0.2    setosa
+## 3            4.7         3.2          1.3         0.2    setosa
+## 4            4.6         3.1          1.5         0.2    setosa
+## 5            5.0         3.6          1.4         0.2    setosa
+## 6            5.4         3.9          1.7         0.4    setosa
+## 7            4.6         3.4          1.4         0.3    setosa
+## 8            5.0         3.4          1.5         0.2    setosa
+## 9            4.4         2.9          1.4         0.2    setosa
+## 10           4.9         3.1          1.5         0.1    setosa
+## 141          6.7         3.1          5.6         2.4 virginica
+## 142          6.9         3.1          5.1         2.3 virginica
+## 143          5.8         2.7          5.1         1.9 virginica
+## 144          6.8         3.2          5.9         2.3 virginica
+## 145          6.7         3.3          5.7         2.5 virginica
+## 146          6.7         3.0          5.2         2.3 virginica
+## 147          6.3         2.5          5.0         1.9 virginica
+## 148          6.5         3.0          5.2         2.0 virginica
+## 149          6.2         3.4          5.4         2.3 virginica
+## 150          5.9         3.0          5.1         1.8 virginica
 
 vari <- iris[,1:4]
 h(vari)
-Sepal.Length Sepal.Width Petal.Length Petal.Width
-1          5.1         3.5          1.4         0.2
-2          4.9         3.0          1.4         0.2
-3          4.7         3.2          1.3         0.2
-4          4.6         3.1          1.5         0.2
-5          5.0         3.6          1.4         0.2
-6          5.4         3.9          1.7         0.4
+## Sepal.Length Sepal.Width Petal.Length Petal.Width
+## 1          5.1         3.5          1.4         0.2
+## 2          4.9         3.0          1.4         0.2
+## 3          4.7         3.2          1.3         0.2
+## 4          4.6         3.1          1.5         0.2
+## 5          5.0         3.6          1.4         0.2
+## 6          5.4         3.9          1.7         0.4
 
 facto <- iris[,5]
 h(facto)
-[1] setosa setosa setosa setosa setosa setosa
-Levels: setosa versicolor virginica
+## [1] setosa setosa setosa setosa setosa setosa
+## Levels: setosa versicolor virginica
 
 pca_results <- prcomp(pca_data[, 1:506])
 
@@ -809,7 +806,7 @@ pca_results <- prcomp(pca_data[, 1:506])
 groups <- as.factor(regimens)
 cvall <- CVA(pca_results$x[, 1:5], groups)
 
-  # Plot CVS results
+# Plot CVA results
 pdf('regimens-cva.pdf')
 #png(file = "myplot.png", bg = "white")
 plot(cvall$CVscores, col=groups, pch=as.numeric(groups), typ="n", asp=1,
@@ -835,6 +832,73 @@ for(ii in 1:length(levels(groups))){
 
 dev.off()
 
+
+#########
+# ROPLS #
+#########
+
+norm_peaks <- getPeaksTable(para, valueID="valueNorm")
+# Create dataMatrix object
+dataMatrix <- norm_peaks[c(1, 5:ncol(norm_peaks))]
+rownames(dataMatrix) <- dataMatrix[, 1]
+dataMatrix <- dataMatrix[ -c(1) ]
+
+# Create sampleMetadata object which needs to look like this:
+## > head(sampleMetadata)
+## age   bmi gender
+## HU_011  29 19.75      M
+## HU_014  59 22.64      F
+## HU_015  42 22.72      M
+## HU_017  41 23.03      M
+## HU_018  34 20.96      M
+## HU_019  35 23.41      M
+
+sampleMetadata <- norm_peaks[c(2:4)]
+rownames(sampleMetadata) <- norm_peaks[, 1]
+
+# variableMetadata object contains the chemical identity of the peaks
+# Have not created this variableMetadata object
+
+# Run PCA
+ropls.norm.data.pca <- opls(dataMatrix)
+
+# Save PCA plot
+pdf('gsk_pca.pdf')
+layout(matrix(1:4, nrow = 2, byrow = TRUE))
+for(typeC in c("overview", "outlier", "x-score", "x-loading"))
+plot(ropls.norm.data.pca, typeVc = typeC, parDevNewL = FALSE)
+dev.off()
+
+# Check if there is an partitioning based on regimen class
+regimenFc <- sampleMetadata[, "class"]
+pdf('gsk_pca_regimen.pdf')
+plot(ropls.norm.data.pca, typeVc = "x-score", parAsColFcVn = regimenFc, parEllipsesL = TRUE, parDevNewL = FALSE)
+dev.off()
+
+# Perform PLS and PLS-DA
+gsk.plsda <- opls(dataMatrix, regimenFc, permI = 100, plotL = FALSE)
+pdf('gsk_plsda_regimen.pdf')
+layout(matrix(1:4, nrow = 2, byrow = TRUE))
+for(typeC in c("permutation", "overview", "outlier", "x-score"))
+plot(gsk.plsda, typeVc = typeC, parDevNewL = FALSE)
+dev.off()
+
+
+#######
+# PCA #
+#######
+
+para <- transformation(para$metaXpara, valueID = "valueNorm")
+metaX::plotPCA(para, valueID = "valueNorm", scale = "pareto", center = TRUE, rmQC = FALSE)
+
+##########
+# PLS-DA #
+##########
+
+para <- transformation(para$metaXpara, valueID = "valueNorm")
+plsdaPara <- new("plsDAPara")
+plsdaPara@nperm <- 100
+plsda.res <- runPLSDA(para = para, plsdaPara = plsdaPara, sample = c("NA", "A", "B", "C", "D"), valueID = "valueNorm")
 
 
 #########################
