@@ -661,6 +661,12 @@ para <- reSetPeaksData(para)
 para <- doQCRLSC(para, cpu=12)
 plotQCRLSC(para$metaXpara)
 
+# Download data
+non_norm_neg_data <- getPeaksTable(para, valueID="value")
+write.table(non_norm_neg_data, file = "non_norm_neg_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+norm_neg_data <- getPeaksTable(para, valueID="valueNorm")
+write.table(norm_neg_data, file = "norm_neg_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+
 
 #####################################
 # Do PCA to check signal correction #
