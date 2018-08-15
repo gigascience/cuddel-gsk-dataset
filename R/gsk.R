@@ -18,7 +18,7 @@ datadir = "/home/peter/"
 neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep ="")
 
 # Output path
-output_path <- paste(neg_dir, "/output", sep = "")
+output_path <- paste(neg_dir, "/output", sep="")
 
 ######################################
 # Read in metadata for data analysis #
@@ -43,10 +43,10 @@ neg_files <- as.character(neg_files)
 
 # Create xcmsSet object using findPeaks parameters from Eva's thesis
 # This is compute intensive and takes time to complete!!
-neg_xset <- xcmsSet(neg_file_paths, step = 0.02, snthresh=3, mzdiff = 0.05)
+neg_xset <- xcmsSet(neg_file_paths, step=0.02, snthresh=3, mzdiff=0.05)
 
 # Match peaks representing same analyte across samples
-grp_neg_xset <- group(neg_xset, bw = 10, mzwid = 0.05)
+grp_neg_xset <- group(neg_xset, bw=10, mzwid=0.05)
 
 # Create CAMERA object
 neg_xsa <- xsAnnotate(grp_neg_xset)
@@ -58,13 +58,18 @@ neg_peaklist$idx <- seq.int(nrow(neg_peaklist))
 neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 
 # Output neg_peaklist data
-write.table(neg_peaklist, file = paste(output_path, "/xcms_neg_peaklist.csv", sep = ""), sep =",", row.names = TRUE, col.names = TRUE)
+write.table(
+    neg_peaklist,
+    file = paste(output_path, "/xcms_neg_peaklist.csv", sep=""),
+    sep=",",
+    row.names=TRUE,
+    col.names=TRUE)
 
 #############################
 # Load saved peak list data #
 #############################
 
-xcms_neg_peaks = read.csv(paste(output_path, "/xcms_neg_peaklist.csv", sep = ""))
+xcms_neg_peaks = read.csv(paste(output_path, "/xcms_neg_peaklist.csv", sep=""))
 
 
 #################################################
@@ -74,7 +79,7 @@ xcms_neg_peaks = read.csv(paste(output_path, "/xcms_neg_peaklist.csv", sep = "")
 # Prepare neg_peaklist data
 pca_data <- xcms_neg_peaks[, neg_files]
 # Remove row peaks containing missing values
-pca_data <- pca_data[rowSums(is.na(pca_data)) == 0 ,]
+pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
@@ -86,242 +91,157 @@ pca_meta <- cbind(block_meta, sample_meta)
 pca_data <- t(pca_data)
 
 # Plot PCA results
-autoplot(prcomp(pca_data), data=pca_meta, shape='block_meta', colour='sample_meta', main='PCA on unprocessed negative QC and sample data', frame=TRUE, frame.type='norm')
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='sample_meta',
+    main='PCA on unprocessed negative QC and sample data',
+    frame=TRUE,
+    frame.type='norm')
 ggsave(paste(output_path, "/unprocessed_neg_qc_sample_pca.png", sep=""))
 
-autoplot(prcomp(pca_data), data=pca_meta, shape='block_meta', colour='block_meta', main='PCA on unprocessed negative QC and sample data', frame=TRUE, frame.type='norm')
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='block_meta',
+    main='PCA on unprocessed negative QC and sample data',
+    frame=TRUE,
+    frame.type='norm')
 ggsave(paste(output_path, "/unprocessed_neg_qc_sample_pca.png", sep=""))
-
-
-##########################################
-# Extract QC data from negative peaklist #
-##########################################
-
-# Get QC sample names
-meta_all_qc_rows <- meta_all[, "type"] == "QC"
-neg_qc_names <- meta_all[meta_all_qc_rows, "file_name_neg"]
-neg_qc_names <- as.character(neg_qc_names)
-# Subset QC data from negative peak list
-qc_neg_peaklist <- xcms_neg_peaks[, neg_qc_names]
 
 
 ##############################
 # Do PCA on negative QC data #
 ##############################
 
-# Prepare neg_peaklist data
-pca_data <- qc_neg_peaklist
+# Prepare QC negative peaklist data
+meta_all_qc_rows <- meta_all[, "type"]=="QC"
+neg_qc_names <- meta_all[meta_all_qc_rows, "file_name_neg"]
+neg_qc_names <- as.character(neg_qc_names)
+# Subset QC data from negative peak list
+pca_data <- xcms_neg_peaks[, neg_qc_names]
+# Remove row peaks containing missing values
+pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
-# Prepare block information for labelling data points
-block <- integer(0)
-qc_names <- colnames(pca_data)
-for (i in 1:length(qc_names)) {
-  if (grepl("block1", qc_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", qc_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", qc_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", qc_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta)
 
 # Transpose data
 pca_data <- t(pca_data)
-# Add block information, QC and sample names to PCA data
-pca_data <- cbind(pca_data, block)
-# PCA cannot be performed on data with missing values
-# Therefore remove peak rows if it contains missing values
-pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
 
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:409]), data = pca_data, shape = 'block', colour= "block", main = 'PCA on unprocessed negative QCs', frame = TRUE, frame.type = 'norm')
-ggsave("unprocessed_neg_qc_pca.png")
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='block_meta',
+    main='PCA on unprocessed negative QCs',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/unprocessed_neg_qc_pca.png", sep=""))
 
 
 ############################################################################
 # Calculate percentage of missing values for each feature row for QCs only #
 ############################################################################
 
-percent_na_qc_neg_peaklist <- qc_neg_peaklist
+# Prepare QC negative data
+qc_neg_peaklist <- xcms_neg_peaks[, neg_qc_names]
+# Calculate percentage of missing values by peak row
+percent_nas <- rowMeans(is.na(qc_neg_peaklist))
+# Add columns
+idx <- rownames(qc_neg_peaklist)
+qc_neg_peaklist <- cbind(idx, percent_nas, qc_neg_peaklist)
+# Remove rows containing 40% or more missing values
+na_filtered_qc_neg_peaklist <- qc_neg_peaklist[qc_neg_peaklist$percent_nas < .40, ]
 
-calculate_percentage_na <- function(peak_intensities){
-  for (i in 1:nrow(peak_intensities)) {
-    feature_vector <- peak_intensities[i, ]
-    na_row <- is.na(feature_vector)
-    number_na <- sum(na_row)
-    percent_na <- number_na/ncol(peak_intensities)*100
-    percent_nas[i] <- percent_na
-  }
-  return(percent_nas)
-}
-
-percent_nas <- rep(0, nrow(percent_na_qc_neg_peaklist))
-percent_nas <- calculate_percentage_na(percent_na_qc_neg_peaklist)
-
-# Paste percent_nas into negative peak list data frame
-percent_na_qc_neg_peaklist <- cbind(percent_na_qc_neg_peaklist, percent_nas)
-# Copy peak id rownames into last column
-percent_na_qc_neg_peaklist <- cbind(percent_na_qc_neg_peaklist, rownames(percent_na_qc_neg_peaklist))
-colnames(percent_na_qc_neg_peaklist)[ncol(percent_na_qc_neg_peaklist)] <- "idx"
-
-###############################################
-# Remove rows with 40% or more missing values #
-###############################################
-
-over_40_percent_rows <- as.numeric(percent_na_qc_neg_peaklist$percent_nas) < 40
-del40_qc_neg_peaklist <- percent_na_qc_neg_peaklist[over_40_percent_rows, ]
-
-# qc_neg_peaklist contains 3134 rows. After filtering rows with 40% na = 1704 rows
+# qc_neg_peaklist has 3134 rows. After filtering rows with 40% na, na_filtered_qc_neg_peaklist contains 1704 rows
 
 
 ###############################################################
 # Do PCA after removing features with 40% missing data values #
 ###############################################################
 
-# Not required columns for PCA analysis
-nr <- c("percent_nas", "idx")
-nr <- colnames(del40_qc_neg_peaklist) %in% c("percent_nas", "idx")
-# Prepare neg_peaklist data
-pca_data <- del40_qc_neg_peaklist[, !nr]
+# Prepare negative peaklist data
+nr <- colnames(na_filtered_qc_neg_peaklist) %in% c("percent_nas", "idx")
+pca_data <- na_filtered_qc_neg_peaklist[, !nr]
+# Remove row peaks containing missing values
+pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
-# Prepare block information for labelling data points
-block <- integer(0)
-qc_names <- colnames(pca_data)
-for (i in 1:length(qc_names)) {
-  if (grepl("block1", qc_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", qc_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", qc_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", qc_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta)
 
 # Transpose data
 pca_data <- t(pca_data)
-# Add block information to PCA data
-pca_data <- cbind(pca_data, block)
-# PCA cannot be performed on data with missing values
-# Remove peak rows if it contains missing values
-pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
 
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, shape = 'block', colour= "block", main = 'PCA on negative QCs after peaks missing 40% values removed', frame = TRUE, frame.type = 'norm')
-ggsave("40_percent_filtered_neg_qc_pca.png")
-
-
-####################################################################
-# Impute means to replace remaining missing values in negative QCs #
-####################################################################
-
-# Prepare  data
-nr <- c("percent_nas", "idx")
-nr <- colnames(del40_qc_neg_peaklist) %in% c("percent_nas", "idx")
-impute_mean_qc_neg_peaklist <- del40_qc_neg_peaklist[,!nr]
-na_rows <- which(is.na(impute_mean_qc_neg_peaklist), arr.ind=TRUE)
-impute_mean_qc_neg_peaklist[na_rows] <- rowMeans(impute_mean_qc_neg_peaklist, na.rm=TRUE)[na_rows[,1]]
-
-
-################################################
-# Do PCA plot to check effect of imputed means #
-################################################
-pca_data <- impute_mean_qc_neg_peaklist
-pca_data <- t(pca_data)
-
-# Create vector containing block information
-sample_names <- rownames(pca_data)
-block <- integer(0)
-for (i in 1:length(sample_names)) {
-  if (grepl("block1", sample_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", sample_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", sample_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", sample_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
-
-pca_data <- cbind(pca_data, block)
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-
-# Now do PCA
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[1:ncol(pca_data)-1]), data = pca_data, colour= "block", main = 'PCA on negative QC data with imputed means for missing values')
-ggsave("impute_mean_pca_data.png")
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='block_meta',
+    main='PCA on negative QCs after peaks missing 40% values removed',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/40_percent_filtered_neg_qc_pca.png", sep=""))
 
 
 ###################################################################
 # Impute k-nearest neighbours to replace remaining missing values #
 ###################################################################
 
-# Replace NAs with k-means clustering
-impute_knn_qc_neg_peaklist <- del40_qc_neg_peaklist
-# Clean up columns
-nr <- c("percent_nas", "idx")
-nr <- colnames(del40_qc_neg_peaklist) %in% c("percent_nas", "idx")
-impute_knn_qc_neg_peaklist <- impute_knn_qc_neg_peaklist[, !nr]
+# Prepare data for knn analysis
+nr <- colnames(na_filtered_qc_neg_peaklist) %in% c("percent_nas", "idx")
+impute_data <- na_filtered_qc_neg_peaklist[, !nr]
 # Transpose data
-impute_knn_qc_neg_peaklist <- t(impute_knn_qc_neg_peaklist)
+impute_data <- t(impute_data)
+
 # Identify which column peak features have missing values
-na_cols <- colnames(impute_knn_qc_neg_peaklist)[colSums(is.na(impute_knn_qc_neg_peaklist)) > 0]
-# Perform K-means clustering using VIM
-knn <- kNN(impute_knn_qc_neg_peaklist, variable = na_cols)
+na_peak_cols <- colnames(impute_data)[colSums(is.na(impute_data)) > 0]
+# Perform K-means clustering using VIM - takes time!!
+knn <- kNN(impute_data, variable=na_peak_cols)
 # Copy peak features from kNN result
-impute_knn_qc_neg_peaklist2 <- knn[, 1:1704]
-impute_knn_qc_neg_peaklist2 <- as.matrix(impute_knn_qc_neg_peaklist2)
-# Copy rownames from impute_knn_data to rownames for knn
-rownames(impute_knn_qc_neg_peaklist2) <- rownames(impute_knn_qc_neg_peaklist)
-# Copy colnames from impute_knn_data to colnames for knn
-colnames(impute_knn_qc_neg_peaklist2) <- colnames(impute_knn_qc_neg_peaklist)
+knn_qc_neg_peaklist <- knn[, 1:ncol(impute_data)]
+knn_qc_neg_peaklist <- as.matrix(knn_qc_neg_peaklist)
+# Copy rownames and column names from impute_knn_data to rownames for knn
+rownames(knn_qc_neg_peaklist) <- rownames(impute_data)
+colnames(knn_qc_neg_peaklist) <- colnames(impute_data)
+# Transpose
+knn_qc_neg_peaklist <- t(knn_qc_neg_peaklist)
 
 
 #####################################################
 # Do PCA plot to check effect of imputed knn values #
 #####################################################
-pca_data <- impute_knn_qc_neg_peaklist2
+pca_data <- knn_qc_neg_peaklist
 
-# Create vector containing block information
-sample_names <- rownames(pca_data)
-block <- integer(0)
-for (i in 1:length(sample_names)) {
-  if (grepl("block1", sample_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", sample_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", sample_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", sample_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta)
 
-pca_data <- cbind(pca_data, block)
-write.table(pca_data, file = "impute_knn_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
+# Transpose data
+pca_data <- t(pca_data)
 
-# Now do PCA
-pca_data <- read.table(file = "impute_knn_pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, shape = "block", colour = "block", main = 'PCA on negative QC data with imputed k-means for missing values', frame = TRUE, frame.type = 'norm')
-ggsave("impute_knn_pca_data.png")
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='block_meta',
+    main='PCA on negative QC data with imputed k-means for missing values',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/impute_knn_pca_data.png", sep=""))
 
 
 ######################################
@@ -329,11 +249,23 @@ ggsave("impute_knn_pca_data.png")
 ######################################
 
 # Prepare data for RSD analysis
-rsd_qc_neg_peaklist <- impute_knn_qc_neg_peaklist2
-rsd_qc_neg_peaklist <- t(rsd_qc_neg_peaklist)
+rsd_qc_neg_peaklist <- knn_qc_neg_peaklist
+# rsd_qc_neg_peaklist <- t(rsd_qc_neg_peaklist)
 
-# Process data by rows according to peaks across QC samples
-# Peaks are removed if its RSD QC value was >20%; i.e. the analytical
+rowRSD <- apply(rsd_qc_neg_peaklist, 1, function(data) {
+  sd <- sd(data)
+  mean <- mean(data)
+  rsd <- (sd/mean) * 100
+  return(rsd)
+})
+
+# Find out which rows are over 20% RSD
+which(rowRSD > 20)
+
+
+####
+
+# Remove QC peaks if RSD is >20%; i.e. the analytical
 # reproducibility of the peak was considered too high.
 filter_by_rsd <- function(data, feature_percent_threshold = 20) {
   # Calculate mean for each feature vector row
