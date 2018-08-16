@@ -264,196 +264,151 @@ bad_rows <- which(rowRSD > 20)
 rsd_qc_neg_peaklist <- rsd_qc_neg_peaklist[-bad_rows, ]
 
 
-############################################################
-# Do PCA to check effect of RSD filtering after imputation #
-############################################################
+###########################################
+# Do PCA to check effect of RSD filtering #
+###########################################
 
 pca_data <- rsd_qc_neg_peaklist
 
-# Remove RSD calculation columns
-rsd_cols <- colnames(pca_data) %in% c("feature_vector_means", "feature_vector_standard_deviations", "feature_vector_rsds")
-pca_data <- pca_data[,!rsd_cols]
-pca_data <- t(pca_data)
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta)
 
-# Create vector containing block information
-sample_names <- rownames(pca_data)
-block <- integer(0)
-for (i in 1:length(sample_names)) {
-  if (grepl("block1", sample_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", sample_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", sample_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", sample_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
-
-pca_data <- cbind(pca_data, block)
-write.table(pca_data, file = "rsd_knn_neg_pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-
-pca_data <- read.table(file = "rsd_knn_neg_pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, shape = "block", colour = "block", main = 'PCA on RSD filtered, k-means imputed QC negative data', frame = TRUE, frame.type = 'norm')
-ggsave("rsd_neg_qc_pca_data.png")
-
-
-################################################
-# Get feature vectors from samples and combine #
-# with negative QCs                            #
-################################################
-
-pretreated_qc_sample_peaklist <- rsd_qc_neg_peaklist
-pretreated_qc_sample_peaklist <- pretreated_qc_sample_peaklist[, !rsd_cols]
-# Get peak idx of pretreated QC feature vectors
-pretreated_idx <- rownames(pretreated_qc_sample_peaklist)
-
-# Get QC and sample feature vectors from neg_peaklist
-pretreated_sample_peaklist <- neg_peaklist[rownames(neg_peaklist) %in% pretreated_idx,]
-# Get rid of QCs in pretreated_sample_peaklist
-neg_sample_names <- meta_all[meta_all$type == "Sample", "file_name_neg"]
-neg_sample_names <- as.character(neg_sample_names)
-# Get sample peaklist using neg_sample_names
-pretreated_sample_peaklist <- pretreated_sample_peaklist[,colnames(pretreated_sample_peaklist) %in% neg_sample_names]
-# Combine QCs and samples from negative peaklist
-pretreated_qc_sample_peaklist <- cbind(pretreated_qc_sample_peaklist, pretreated_sample_peaklist)
-
-
-#########################################################################
-# Do PCA on combined rsd_qc_neg_peaklist and pretreated_sample_peaklist #
-#########################################################################
-
-pca_data <- pretreated_qc_sample_peaklist
-pca_data_qc_sample_names <- colnames(pretreated_qc_sample_peaklist)
-pca_data_peak_idx <- rownames(pretreated_qc_sample_peaklist)
-pca_data <- t(pca_data)
-
-# Create vector containing block information
-sample_names <- rownames(pca_data)
-block <- integer(0)
-for (i in 1:length(sample_names)) {
-  if (grepl("block1", sample_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", sample_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", sample_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", sample_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
-
-# Prepare QC and sample information for labelling data points
-pca_meta_qc_sample <- integer(0)
-qc_sample_names <- colnames(pretreated_qc_sample_peaklist)
-for (i in 1:length(qc_sample_names)) {
-  if (meta_all[which(meta_all[,"file_name_neg"]==qc_sample_names[i]), "type"] == 'QC') {
-    pca_meta_qc_sample[i] <- "QC"
-  }
-  else {
-    pca_meta_qc_sample[i] <- "Sample"
-  }
-}
-
-pca_data <- cbind(pca_data, block, pca_meta_qc_sample)
-# PCA cannot be performed on data with missing values
-# Therefore remove peak rows if it contains missing values
-pca_data <- pca_data[ , colSums(is.na(pca_data)) == 0]
-
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-
-# Colour blocks in PCA plot
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:210]), data = pca_data, colour = "block", shape = "pca_meta_qc_sample", main = 'PCA on pretreated negative QCs with negative samples', frame = TRUE, frame.type = 'norm')
-ggsave("rsd_neg_qc_get_samples_coloured_blocks.png")
-
-# Colour QCs and samples in PCA plot
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:210]), data = pca_data, colour = "pca_meta_qc_sample", shape = "block", main = 'PCA on pretreated negative QCs with negative samples', frame = TRUE, frame.type = 'norm')
-ggsave("rsd_neg_qc_get_samples.png")
-
-
-############################################################
-# Use k-means to impute missing values in negative samples #
-############################################################
-
-knn_sample_peaklist <- pretreated_sample_peaklist
 # Transpose data
-knn_sample_peaklist <- t(knn_sample_peaklist)
+pca_data <- t(pca_data)
 
-# Identify which column peak features have missing values
-na_cols <- colnames(knn_sample_peaklist)[colSums(is.na(knn_sample_peaklist)) > 0]
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='block_meta',
+    main='PCA on RSD filtered QC negative data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/rsd_neg_qc_pca_data.png", sep=""))
+
+
+##########################################################################
+# Combine feature vectors from plasma samples with filtered negative QCs #
+##########################################################################
+
+# Get peak indices of pretreated QC feature vectors
+pretreated_qc_idx <- rownames(rsd_qc_neg_peaklist)
+# Get plasma peaklist from neg_peaklist based on pretreated QC indices
+filtered_neg_peaklist <- neg_peaklist[rownames(neg_peaklist) %in% pretreated_qc_idx, ]
+neg_plasma_sample_names <- getNegPlasmaSampleNames()
+filtered_plasma_peaklist <- filtered_neg_peaklist[, colnames(filtered_neg_peaklist) %in% neg_plasma_sample_names]
+# Combine QC and plasma samples from negative peaklist
+filtered_qc_plasma_peaklist <- cbind(rsd_qc_neg_peaklist, filtered_plasma_peaklist)
+
+
+####################################################
+# Do PCA on filtered QC and plasma sample peaklist #
+####################################################
+
+pca_data <- filtered_qc_plasma_peaklist
+# Remove row peaks containing missing values
+pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='sample_type_meta',
+    colour='block_meta',
+    main='PCA on filtered negative QCs with negative plasma samples',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples.png", sep=""))
+
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='sample_type_meta',
+    main='PCA on pretreated negative QCs with negative plasma samples',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples.png", sep=""))
+
+
+###########################################################
+# Use k-means to impute missing values for plasma samples #
+###########################################################
+
+# Prepare data for imputation
+impute_data <- filtered_qc_plasma_peaklist
+impute_data <- t(impute_data)
+
+# Identify  column peak features with missing values
+na_cols <- colnames(impute_data)[colSums(is.na(impute_data)) > 0]
 # Perform K-means clustering using VIM
-knn <- kNN(knn_sample_peaklist, variable = na_cols)
+knn <- kNN(impute_data, variable=na_cols)
 
 # Copy peak features from kNN result
-knn_sample_peaklist2 <- knn[,1:506]
-knn_sample_peaklist2 <- as.matrix(knn_sample_peaklist2)
-# Copy rownames from impute_knn_data to rownames for knn
-rownames(knn_sample_peaklist2) <- rownames(knn_sample_peaklist)
-# Copy colnames from impute_knn_data to colnames for knn
-colnames(knn_sample_peaklist2) <- colnames(knn_sample_peaklist)
+knn_qc_plasma_peaklist <- knn[, 1:ncol(impute_data)]
+knn_qc_plasma_peaklist <- as.matrix(knn_qc_plasma_peaklist)
+# Copy rownames and column names
+rownames(knn_qc_plasma_peaklist) <- rownames(impute_data)
+colnames(knn_qc_plasma_peaklist) <- colnames(impute_data)
 
-# Combine QCs and knn samples from negative peaklist
-knn_sample_peaklist2 <- t(knn_sample_peaklist2)
-pretreated_qc_knn_sample_peaklist <- cbind(rsd_qc_neg_peaklist[,!rsd_cols], knn_sample_peaklist2)
+# Transpose
+knn_qc_plasma_peaklist <- t(knn_qc_plasma_peaklist)
 
 
 #########################################################################
 # Do PCA on combined rsd_qc_neg_peaklist and pretreated_sample_peaklist #
 #########################################################################
 
-pca_data <- pretreated_qc_knn_sample_peaklist
-pca_data_qc_sample_names <- colnames(pretreated_qc_knn_sample_peaklist)
-pca_data_peak_idx <- rownames(pretreated_qc_knn_sample_peaklist)
+pca_data <- knn_qc_plasma_peaklist
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples)
+# Convert to block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta)
+
+# Transpose data
 pca_data <- t(pca_data)
 
-# Create vector containing block information
-sample_names <- rownames(pca_data)
-block <- integer(0)
-for (i in 1:length(sample_names)) {
-  if (grepl("block1", sample_names[i]) == 1) {
-    block[i] <- "block1"
-  }
-  else if (grepl("block2", sample_names[i]) == 1) {
-    block[i] <- "block2"
-  }
-  else if (grepl("block3", sample_names[i]) == 1) {
-    block[i] <- "block3"
-  }
-  else if (grepl("block4", sample_names[i]) == 1) {
-    block[i] <- "block4"
-  }
-}
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='sample_type_meta',
+    main='PCA on pretreated negative QCs with knn negative samples',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/pretreated_qc_knn_neg_samples_pca.png", sep=""))
 
-# Prepare QC and sample information for labelling data points
-pca_meta_qc_sample <- integer(0)
-qc_sample_names <- rownames(pca_data)
-for (i in 1:length(qc_sample_names)) {
-  if (meta_all[which(meta_all[,"file_name_neg"]==qc_sample_names[i]), "type"] == 'QC') {
-    pca_meta_qc_sample[i] <- "QC"
-  }
-  else {
-    pca_meta_qc_sample[i] <- "Sample"
-  }
-}
-
-pca_data <- cbind(pca_data, block, pca_meta_qc_sample)
-write.table(pca_data, file = "pca_data.csv", sep =",", row.names = TRUE, col.names = TRUE)
-
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:506]), data = pca_data, colour = "pca_meta_qc_sample", shape = "block", main = 'PCA on pretreated negative QCs with knn negative samples', frame = TRUE, frame.type = 'norm')
-ggsave("pretreated_qc_knn_neg_samples_pca.png")
-
-pca_data <- read.table(file = "pca_data.csv", sep=",")
-autoplot(prcomp(pca_data[,1:506]), data = pca_data, colour = "pca_meta_qc_sample", shape = "block", main = 'PCA on pretreated negative QCs with knn negative samples', frame = TRUE, frame.type = 'norm')
-ggsave("pretreated_qc_knn_neg_samples_pca.png")
+# Plot PCA results
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='sample_type_meta',
+    main='PCA on pretreated negative QCs with knn negative samples',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/pretreated_qc_knn_neg_samples_pca.png", sep=""))
 
 
 ############################################################
@@ -465,7 +420,7 @@ ggsave("pretreated_qc_knn_neg_samples_pca.png")
 # 4 analytical blocks are removed by XCMS during peak alignment.
 
 # Data for metaX signal correction needs to look like this:
-head(signal_correction_data[,1:4])
+head(signal_correction_data[, 1:4])
 ## name batch01_QC01 batch01_QC02 batch01_QC03
 ## 1  78.02055      14023.0      13071.0      15270.0
 ## 2 452.00345      22455.0      10737.0      27397.0
