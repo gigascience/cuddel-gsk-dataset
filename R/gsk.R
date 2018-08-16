@@ -250,8 +250,8 @@ ggsave(paste(output_path, "/impute_knn_pca_data.png", sep=""))
 
 # Prepare data for RSD analysis
 rsd_qc_neg_peaklist <- knn_qc_neg_peaklist
-# rsd_qc_neg_peaklist <- t(rsd_qc_neg_peaklist)
 
+# Calculate RSD
 rowRSD <- apply(rsd_qc_neg_peaklist, 1, function(data) {
   sd <- sd(data)
   mean <- mean(data)
@@ -259,41 +259,10 @@ rowRSD <- apply(rsd_qc_neg_peaklist, 1, function(data) {
   return(rsd)
 })
 
-# Find out which rows are over 20% RSD
-which(rowRSD > 20)
+# Find out which rows are over 20% RSD and remove them
+bad_rows <- which(rowRSD > 20)
+rsd_qc_neg_peaklist <- rsd_qc_neg_peaklist[-bad_rows, ]
 
-
-####
-
-# Remove QC peaks if RSD is >20%; i.e. the analytical
-# reproducibility of the peak was considered too high.
-filter_by_rsd <- function(data, feature_percent_threshold = 20) {
-  # Calculate mean for each feature vector row
-  feature_vector_means <- rowMeans(data)
-  # Calculate standard deviation by feature vector row
-  feature_vector_standard_deviations <- apply(data, 1, sd)
-  # Check feature_vector_means and feature_vector_standard_deviations lengths
-  if (length(feature_vector_means) != length(feature_vector_standard_deviations)) {
-      print(paste0("feature_vector_means length is not equal to feature_vector_standard_deviations length"))
-  }
-  # Calculate RSD per row from above matrix and add as third column by dividing the standard deviation by the mean and then multiply the result by 100 to express it as a percentage.
-  feature_vector_rsds <- apply(data, 1, function(data) {
-    sd <- sd(data)
-    mean <- mean(data)
-    rsd <- (sd/mean) * 100
-    return(rsd)
-  })
-
-  # Column bind feature_vector_means and feature_vector_standard_deviations
-  data <- cbind(data, feature_vector_means, feature_vector_standard_deviations,feature_vector_rsds)
-  # List peak IDs from rownames which are above 20% RSD and need removing from
-  # feature vector matrix
-  rows_for_deleting <- which(data[, "feature_vector_rsds"] > 20)
-  data <- data[-rows_for_deleting, ]
-  return(data)
-}
-
-rsd_qc_neg_peaklist <- filter_by_rsd(rsd_qc_neg_peaklist)
 
 ############################################################
 # Do PCA to check effect of RSD filtering after imputation #
