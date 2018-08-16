@@ -6,17 +6,23 @@
 # Location of GSK data set
 datadir = "/home/peter/"
 # File path for negative files
-neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep ="")
+neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep="")
 
 ######################################
 # Read in metadata for data analysis #
 ######################################
 
 # Read in and sort metadata files
-meta <- read.csv(paste(datadir, "gsk/meta/meta.csv", sep =""))
+meta <- read.csv(paste(datadir, "gsk/meta/meta.csv", sep=""))
 meta <- meta[naturalorder(meta$file_name_neg),]
-meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep =""))
+meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep=""))
 meta_all <- meta_all[naturalorder(meta_all$file_name_neg),]
+
+getNegPlasmaSampleNames <- function() {
+    neg_sample_names <- meta_all[meta_all$type == "Sample", "file_name_neg"]
+    neg_sample_names <- as.character(neg_sample_names)
+    return(neg_sample_names)
+}
 
 getAllNegGSKFilePaths <- function() {
     neg_files <- meta_all[,"file_name_neg"]
@@ -99,4 +105,41 @@ getQCSampleMetadata <- function(samples) {
         }
     }
     return(sample_meta)
+}
+
+getRegimenMetadata <- function(samples) {
+    sample_meta <- character(0)
+    for (i in 1:length(samples)) {
+        regimen <- meta_all[which(meta_all[,"file_name_neg"]==samples[i]), "Regimen"]
+        if (is.na(regimen)) {
+            sample_meta[i] <- "QC"
+        }
+        else {
+            sample_meta[i] <- regimen
+        }
+    }
+    return(sample_meta)
+}
+
+
+getNegativeQCSampleNames <- function() {
+    neg_qc_names <- meta_all[meta_all[, "type"] == 'QC', "file_name_neg"]
+    neg_qc_names <- as.character(neg_qc_names)
+    return(neg_qc_names)
+}
+
+getNumberOfNegativeQCs <- function() {
+    neg_qc_names <- getNegativeQCSampleNames()
+    return(length(neg_qc_names))
+}
+
+getNegativePlasmaSampleNames <- function() {
+    neg_plasma_names <- meta_all[meta_all[, "type"] == 'Sample', "file_name_neg"]
+    neg_plasma_names <- as.character(neg_plasma_names)
+    return(neg_plasma_names)
+}
+
+getNumberOfNegativePlasmaSamples <- function() {
+    neg_plasma_names <- getNegativePlasmaSampleNames()
+    return(length(neg_plasma_names))
 }
