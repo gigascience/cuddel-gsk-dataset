@@ -99,7 +99,7 @@ autoplot(
     main='PCA on unprocessed negative QC and sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_neg_qc_sample_pca.png", sep=""))
+ggsave(paste(output_path, "/unprocessed_neg_qc_sample_pca_shape_block_colour_sample.png", sep=""))
 
 autoplot(
     prcomp(pca_data),
@@ -128,7 +128,7 @@ pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
 # Transpose data
@@ -140,7 +140,7 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on unprocessed negative QCs',
+    main='PCA on unprocessed negative QC samples',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/unprocessed_neg_qc_pca.png", sep=""))
@@ -176,7 +176,7 @@ pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
 # Transpose data
@@ -226,7 +226,7 @@ pca_data <- knn_qc_neg_peaklist
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
 # Transpose data
@@ -241,7 +241,7 @@ autoplot(
     main='PCA on negative QC data with imputed k-means for missing values',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/impute_knn_pca_data.png", sep=""))
+ggsave(paste(output_path, "/impute_knn_neg_qc_pca.png", sep=""))
 
 
 ######################################
@@ -273,7 +273,7 @@ pca_data <- rsd_qc_neg_peaklist
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
 # Transpose data
@@ -285,10 +285,10 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on RSD filtered QC negative data',
+    main='PCA on RSD-filtered QC negative data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/rsd_neg_qc_pca_data.png", sep=""))
+ggsave(paste(output_path, "/rsd_neg_qc_pca.png", sep=""))
 
 
 ##########################################################################
@@ -318,7 +318,7 @@ samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples)
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta)
 
 # Transpose data
@@ -333,7 +333,7 @@ autoplot(
     main='PCA on filtered negative QCs with negative plasma samples',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples.png", sep=""))
+ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples_pca.png", sep=""))
 
 # Plot PCA results
 autoplot(
@@ -344,7 +344,7 @@ autoplot(
     main='PCA on pretreated negative QCs with negative plasma samples',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples.png", sep=""))
+ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples_pca_shape_block_colour_sample.png", sep=""))
 
 
 ###########################################################
@@ -355,7 +355,7 @@ ggsave(paste(output_path, "/filtered_neg_qc_plasma_samples.png", sep=""))
 impute_data <- filtered_qc_plasma_peaklist
 impute_data <- t(impute_data)
 
-# Identify  column peak features with missing values
+# Identify column peak features with missing values
 na_cols <- colnames(impute_data)[colSums(is.na(impute_data)) > 0]
 # Perform K-means clustering using VIM
 knn <- kNN(impute_data, variable=na_cols)
@@ -403,8 +403,8 @@ ggsave(paste(output_path, "/pretreated_qc_knn_neg_samples_pca.png", sep=""))
 autoplot(
     prcomp(pca_data),
     data=pca_meta,
-    shape='block_meta',
-    colour='sample_type_meta',
+    shape='sample_type_meta',
+    colour='block_meta',
     main='PCA on pretreated negative QCs with knn negative samples',
     frame=TRUE,
     frame.type='norm')
@@ -416,18 +416,9 @@ ggsave(paste(output_path, "/pretreated_qc_knn_neg_samples_pca.png", sep=""))
 # batch-to-batch variation in negative QCs and samples     #
 ############################################################
 
-# Need to consider batch differences affecting peaks in QCs due to the
-# 4 analytical blocks are removed by XCMS during peak alignment.
-
-# Data for metaX signal correction needs to look like this:
-# head(signal_correction_data[, 1:4])
-##        name batch01_QC01 batch01_QC02 batch01_QC03
-## 1  78.02055      14023.0      13071.0      15270.0
-## 2 452.00345      22455.0      10737.0      27397.0
-## 3 138.96337       6635.4       8062.3       6294.6
-## 4  73.53838      26493.0      26141.0      25944.0
-## 5 385.12885      57625.0      56964.0      59045.0
-## 6 237.02815     105490.0      90166.0      92315.0
+# Need to consider batch differences affecting peaks in QCs
+# due to the 4 analytical blocks are removed by XCMS during
+# peak alignment.
 
 # Prepare data
 signal_corr_data <- knn_qc_plasma_peaklist
@@ -436,7 +427,7 @@ colnames(signal_corr_data)[1] <- "name"
 signal_corr_data <- data.frame(signal_corr_data)
 # Check
 head(signal_corr_data[, 1:4])
-## name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
+##    name GSK_neg_block1_09r GSK_neg_block1_10r GSK_neg_block1_16r
 ## 2     2   2214161.06684043   2213167.30024468   2200922.27885106
 ## 11   11   80404.2911244445   90185.9247093023   80860.0580355555
 ## 12   12   1052155.88762273   1013478.89673721   968455.803136363
@@ -490,7 +481,7 @@ plotQCRLSC(para$metaXpara)
 para <- transformation(para$metaXpara, valueID="value")
 non_norm_neg_peaklist <- getPeaksTable(para, valueID="value")
 write.table(
-    non_norm_neg_data,
+    non_norm_neg_peaklist,
     file=paste(output_path, "/non_norm_neg_data.csv", sep=""),
     sep=",",
     row.names=TRUE,
@@ -509,7 +500,7 @@ norm_neg_peaklist <- t(norm_neg_peaklist)
 # Order data based on the peak ID rownames
 norm_neg_peaklist <- norm_neg_peaklist[naturalorder(rownames(norm_neg_peaklist)), ]
 write.table(
-    norm_neg_data,
+    norm_neg_peaklist,
     file=paste(output_path, "norm_neg_data.csv", sep=""),
     sep=",",
     row.names=TRUE,
@@ -529,7 +520,7 @@ block_meta <- getBlockMetadata(samples)
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples)
 regimen_meta <- getRegimenMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
 
 # Transpose data
@@ -593,7 +584,7 @@ median_norm_neg_plasma_peaklist <- neg_norm_plasma_peaklist/neg_qc_medians
 # Do PCA to check QC median normalisation #
 ###########################################
 
-# Prepare data
+# Prepare data containinh both QC and plasma sample data
 pca_data <- cbind(neg_norm_qc_data, median_norm_neg_plasma_peaklist)
 
 # Prepare metadata for labelling PCA graph
@@ -602,7 +593,7 @@ block_meta <- getBlockMetadata(samples)
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples)
 regimen_meta <- getRegimenMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
 
 # Transpose data
@@ -613,10 +604,37 @@ autoplot(
     prcomp(pca_data),
     data=pca_meta,
     colour='regimen_meta',
-    main='PCA on QC-median normalised negative QC and plasma data',
+    main='PCA on QC-median normalised QC and plasma data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/QC_median_norm_peaklist.png", sep=""))
+ggsave(paste(output_path, "/QC_median_norm_QC_plasma_peaklist.png", sep=""))
+
+####
+
+# Prepare data containing only QC data
+pca_data <- cbind(median_norm_neg_plasma_peaklist)
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples)
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples)
+regimen_meta <- getRegimenMetadata(samples)
+# Convert block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Highlight sample type and batch in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='regimen_meta',
+    main='PCA on QC-median normalised plasma data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/QC_median_norm_plasma_peaklist.png", sep=""))
 
 
 ##########################################################
@@ -629,11 +647,9 @@ ggsave(paste(output_path, "/QC_median_norm_peaklist.png", sep=""))
 # Get all TP 0 data
 tp0_neg_plasma_names <- getNegativeTP0PlasmaSampleNames()
 tp0_neg_plasma_peaklist <- norm_neg_peaklist[, tp0_neg_plasma_names]
-
 # Calculate average value for each TP0 peak
 tp0_means <- rowMeans(tp0_neg_plasma_peaklist)
-
-# Divide all data with tp0 mean
+# Divide all data with tp0 means
 tp0_norm_plasma_peaklist <- median_norm_neg_plasma_peaklist/tp0_means
 
 
@@ -642,7 +658,7 @@ tp0_norm_plasma_peaklist <- median_norm_neg_plasma_peaklist/tp0_means
 #####################################
 
 # Prepare data
-pca_data <- cbind(neg_norm_qc_data, tp0_norm_plasma_peaklist)
+pca_data <- cbind(tp0_norm_plasma_peaklist)
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
@@ -650,7 +666,7 @@ block_meta <- getBlockMetadata(samples)
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples)
 regimen_meta <- getRegimenMetadata(samples)
-# Convert to block_meta character vector to matrix
+# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
 
 # Transpose data
@@ -661,10 +677,7 @@ autoplot(
     prcomp(pca_data),
     data=pca_meta,
     colour='regimen_meta',
-    main='PCA on normalised negative QC and sample data',
+    main='PCA on TP0 and QC-median normalised negative plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/TP0_norm_peaklist.png", sep=""))
-
-autoplot(prcomp(pca_data[,1:ncol(pca_data)-1]), data = pca_data, colour = 'regimen', main = 'PCA on TP0-normalised negative QC and plasma data', frame.type = 'norm')
-ggsave("pca_qc_TP0_normalised.png")
+ggsave(paste(output_path, "/TP0_norm_peaklist_pca.png", sep=""))
