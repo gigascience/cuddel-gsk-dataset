@@ -18,12 +18,6 @@ meta <- meta[naturalorder(meta$file_name_neg),]
 meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep=""))
 meta_all <- meta_all[naturalorder(meta_all$file_name_neg),]
 
-getNegPlasmaSampleNames <- function() {
-    neg_sample_names <- meta_all[meta_all$type == "Sample", "file_name_neg"]
-    neg_sample_names <- as.character(neg_sample_names)
-    return(neg_sample_names)
-}
-
 getAllNegGSKFilePaths <- function() {
     neg_files <- meta_all[,"file_name_neg"]
     neg_files <- as.character(neg_files)
@@ -93,7 +87,6 @@ getBlockMetadata <- function(sample_names) {
     return(block_metadata)
 }
 
-
 getQCSampleMetadata <- function(samples) {
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
@@ -121,7 +114,6 @@ getRegimenMetadata <- function(samples) {
     return(sample_meta)
 }
 
-
 getNegativeQCSampleNames <- function() {
     neg_qc_names <- meta_all[meta_all[, "type"] == 'QC', "file_name_neg"]
     neg_qc_names <- as.character(neg_qc_names)
@@ -142,4 +134,11 @@ getNegativePlasmaSampleNames <- function() {
 getNumberOfNegativePlasmaSamples <- function() {
     neg_plasma_names <- getNegativePlasmaSampleNames()
     return(length(neg_plasma_names))
+}
+
+getNegativeTP0PlasmaSampleNames <- function() {
+    tp0_sample_names <- meta_all[meta_all[, "Timepoint..PIMS."] == 0, "file_name_neg"]
+    tp0_sample_names <- as.character(tp0_sample_names)
+    tp0_sample_names <- na.omit(tp0_sample_names)
+    return(tp0_sample_names)
 }
