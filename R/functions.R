@@ -1,5 +1,6 @@
-# Title     : TODO
-# Objective : TODO
+# Title     : functions.R
+# Objective : This code provides functions for querying metadata about the GSK
+#             longitudinal dataset.
 # Created by: peterli
 # Created on: 14/8/2018
 
@@ -16,21 +17,21 @@ pos_dir = paste(datadir, "gsk/raw/esi_pos/netcdf", sep="")
 ######################################
 
 # Read in and sort metadata files
-meta <- read.csv(paste(datadir, "gsk/meta/meta.csv", sep=""))
-meta_neg <- meta[naturalorder(meta$file_name_neg), ]
-meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all.csv", sep=""))
-meta_all_neg <- meta_all[naturalorder(meta_all$file_name_neg), ]
+meta <- read.csv(paste(datadir, "gsk/meta/meta_20180831.csv", sep=""))
+meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
 
 #' getAllGSKFilePaths
 #'
-#' Returns a vector containing all the file paths for negative or positive samples.
+#' Returns a vector containing the file paths for all negative or positive QC
+#' and plasma samples.
 #' @author Peter Li <peter@gigasciencejournal.com>
-#' @return file_paths. A vector containing file paths for negative or positive samples.
+#' @return file_paths. A vector containing file paths for negative or positive
+#' samples.
 getAllGSKFilePaths <- function(mode="negative") {
     file_paths <- character()
 
     if (mode == "negative") {
-        files <- meta_all[, "file_name_neg"]
+        files <- meta[, "file_name_neg"]
         files <- as.character(files)
         for (i in 1:length(files)) {
             if (grepl("block1", files[i])) {
@@ -48,7 +49,7 @@ getAllGSKFilePaths <- function(mode="negative") {
         }
     }
     else {
-        files <- meta_all[, "file_name_pos"]
+        files <- meta[, "file_name_pos"]
         files <- as.character(files)
         for (i in 1:length(files)) {
             if (grepl("block1", files[i])) {
@@ -70,12 +71,13 @@ getAllGSKFilePaths <- function(mode="negative") {
 
 #' getGSKFilePath
 #'
-#' Returns the file path for a given name of a sample measured in negative or positive mode.
+#' Returns the file path for a given sample measured in negative or positive
+#' mode.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return gsk_file_path. A vector containing block metadata.
-getGSKFilePath <- function(gsk_filename, mode="negative") {
+getGSKFilePath <- function(gsk_filename) {
     gsk_file_path <- ""
-    if (mode == "negative") {
+    if (grepl("neg", gsk_filename)) {
         if (grepl("block1", gsk_filename)) {
             gsk_file_path <- paste(neg_dir, "/block1neg/", gsk_filename, ".cdf", sep = "")
         }
@@ -89,7 +91,7 @@ getGSKFilePath <- function(gsk_filename, mode="negative") {
             gsk_file_path <- paste(neg_dir, "/block4neg/", gsk_filename, ".cdf", sep = "")
         }
     }
-    else {
+    else if (grepl("pos", gsk_filename)) {
         if (grepl("block1", gsk_filename)) {
             gsk_file_path <- paste(pos_dir, "/block1pos/", gsk_filename, ".cdf", sep = "")
         }
@@ -108,46 +110,36 @@ getGSKFilePath <- function(gsk_filename, mode="negative") {
 
 #' getBlockMetadata
 #'
-#' Returns the block information assoicated with a vector
-#' of sample names.
+#' Returns the block information assoicated with a vector of sample names.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return block_metadata. A vector containing block metadata.
-getBlockMetadata <- function(sample_names) {
-    block_metadata <- character()
-    for (i in 1:length(sample_names)) {
-        if (grepl("block1", sample_names[i])) {
-            block_metadata[i] <- "block1"
-        }
-        else if (grepl("block2", sample_names[i])) {
-            block_metadata[i] <- "block2"
-        }
-        else if (grepl("block3", sample_names[i])) {
-            block_metadata[i] <- "block3"
-        }
-        else if (grepl("block4", sample_names[i])) {
-            block_metadata[i] <- "block4"
-        }
-        else {
-            block_metadata[i] <- ""
-        }
+getBlockMetadata <- function(sample_names, mode="negative") {
+    block_meta <- character(0)
+
+    col_name="file_name_neg"
+    if (mode == "positive") {
+        col_name <- "file_name_pos"
     }
-    return(block_metadata)
+    for (i in 1:length(sample_names)) {
+        block_meta[i] <- meta[which(meta[, col_name]==sample_names[i]), "block"]
+    }
+    return(block_meta)
 }
 
 #' getQCSampleMetadata
 #'
-#' Returns the sample type information assoicated with a vector
-#' of sample names.
+#' Returns the sample type information assoicated with a vector of sample names.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return sample_meta. A vector containing sample type metadata.
-getQCSampleMetadata <- function(samples, esi_mode="negative") {
+getQCSampleMetadata <- function(samples, mode="negative") {
     col_name="file_name_neg"
-    if (esi_mode == "positive") {
-        col_name == "file_name_pos"
+    if (mode == "positive") {
+        col_name <- "file_name_pos"
     }
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
-        if (meta_all[which(meta_all[, col_name]==samples[i]), "type"] == 'QC') {
+        if (meta[which(meta[, col_name]==samples[i]), "type"] == 'QC') {
+            type <- meta[which(meta[, col_name]==samples[i]), "type"]
             sample_meta[i] <- "QC"
         }
         else {
@@ -162,16 +154,18 @@ getQCSampleMetadata <- function(samples, esi_mode="negative") {
 #' Returns the regimens assoicated with a vector of sample names.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return sample_meta. A vector containing regimen information.
-getRegimenMetadata <- function(samples, esi_mode="negative") {
+getRegimenMetadata <- function(samples, mode="negative") {
     col_name="file_name_neg"
-    if (esi_mode == "positive") {
-        col_name == "file_name_pos"
+    if (mode == "positive") {
+        col_name <- "file_name_pos"
     }
 
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
-        regimen <- meta_all[which(meta_all[, col_name]==samples[i]), "Regimen"]
-        if (is.na(regimen)) {
+        print(samples[i])
+        regimen <- meta[which(meta[, col_name]==samples[i]), "Regimen"]
+        regimen <- as.character(regimen)
+        if (regimen=="X") {
             sample_meta[i] <- "QC"
         }
         else {
@@ -183,8 +177,8 @@ getRegimenMetadata <- function(samples, esi_mode="negative") {
 
 #' getQCSampleNames
 #'
-#' Returns all QC sample names which were analysed in negative or positive ionization
-#' mode in the GSK longitudinal data set.
+#' Returns all QC sample names which were analysed in negative or positive
+#' ionization mode in the GSK longitudinal data set.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return qc_names. A vector containing negative or positive QC sample names.
 getQCSampleNames <- function(mode="negative") {
@@ -195,15 +189,15 @@ getQCSampleNames <- function(mode="negative") {
         col_name <- "file_name_pos"
     }
 
-    qc_names <- meta_all[meta_all[, "type"] == 'QC', col_name]
+    qc_names <- meta[meta_all[, "type"] == 'QC', col_name]
     qc_names <- as.character(qc_names)
     return(qc_names)
 }
 
 #' getNumberOfQCs
 #'
-#' Returns the total number of QCs measured in negative or positive ionization mode
-#  in the GSK longitudinal data set.
+#' Returns the total number of QCs measured in negative or positive ionization
+#' mode in the GSK longitudinal data set.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return An integer representing the number negative or positive QCs.
 getNumberOfQCs <- function(mode="negative") {
@@ -213,10 +207,11 @@ getNumberOfQCs <- function(mode="negative") {
 
 #' getPlasmaSampleNames
 #'
-#' Returns a vector of plasma sample names which have been measured in
-#' negative or positive ionization mode in the GSK longitudinal data set.
+#' Returns a vector of plasma sample names which have been measured in negative
+#' or positive ionization mode in the GSK longitudinal data set.
 #' @author Peter Li <peter@gigasciencejournal.com>
-#' @return plasma_names. A vector containing a list of negative plasma sample names.
+#' @return plasma_names. A vector containing a list of negative or positive
+#' plasma sample names.
 getPlasmaSampleNames <- function(mode="negative") {
     if (mode == "negative") {
         col_name <- "file_name_neg"
@@ -224,16 +219,56 @@ getPlasmaSampleNames <- function(mode="negative") {
     else {
         col_name <- "file_name_pos"
     }
-    plasma_names <- meta_all[meta_all[, "type"] == 'Sample', col_name]
+    plasma_names <- meta[meta[, "type"] == 'Sample', col_name]
     plasma_names <- as.character(plasma_names)
     return(plasma_names)
 }
 
-#' getNumberOfPlasmaSamples
+#' getPlasmaSampleNamesByBlock
 #'
-#' Returns an integer showing the number of plasma sample names which
+#' Returns a vector of plasma sample names for a given block which have been
+#' measured in negative or positive ionization mode in the GSK longitudinal data
+#' set.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return plasma_names. A vector containing a list of negative or positive
+#' plasma sample names for a given block.
+getPlasmaSampleNamesByBlock <- function(mode="negative", block="1") {
+    col_name <- "file_name_neg"
+    if (mode == "positive") {
+        col_name <- "file_name_pos"
+    }
+    # Get data associated for specified block
+    block_data <- meta[meta[, "block"] == block, ]
+    # Get plasma sample names from block_data
+    plasma_names <- block_data[block_data[, "type"] == 'Sample', col_name]
+    plasma_names <- as.character(plasma_names)
+    return(plasma_names)
+}
+
+#' getAllSampleNamesByBlock
+#'
+#' Returns a vector of all QC and plasma sample names for a given block which
 #' have been measured in negative or positive ionization mode in the GSK
 #' longitudinal data set.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return plasma_names. A vector containing a list of all QC and plasma sample
+#' names for a given block.
+getAllSampleNamesByBlock <- function(mode="negative", block="1") {
+    col_name <- "file_name_neg"
+    if (mode == "positive") {
+        col_name <- "file_name_pos"
+    }
+    # Get all sample names from block_data
+    all_sample_names <- meta[meta[, "block"] == block, col_name]
+    all_sample_names <- as.character(all_sample_names)
+    return(all_sample_names)
+}
+
+#' getNumberOfPlasmaSamples
+#'
+#' Returns an integer showing the number of plasma samples which have been
+#' measured in negative or positive ionization mode in the GSK longitudinal data
+#' set.
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return An integer showing number of negative or positive plasma sample names.
 getNumberOfPlasmaSamples <- function(mode="negative") {
@@ -243,19 +278,18 @@ getNumberOfPlasmaSamples <- function(mode="negative") {
 
 #' getTP0PlasmaSampleNames
 #'
-#' Returns an integer showing the number of plasma sample names which
-#' have been measured at Time Point 0 in negative or positive ionization mode in
-#' the GSK longitudinal data set.
+#' Returns an integer showing the number of plasma sample names which have been
+#' measured at Time Point 0 in negative or positive ionization mode in the GSK
+#' longitudinal data set.
 #' @author Peter Li <peter@gigasciencejournal.com>
-#' @return tp0_sample_names. An integer showing number of positive or negative plasma sample names.
-getNegativeTP0PlasmaSampleNames <- function(mode="negative") {
-    if (mode == "negative") {
-        col_name <- "file_name_neg"
-    }
-    else {
+#' @return tp0_sample_names. An integer showing number of positive or negative
+#' plasma sample names.
+getTP0PlasmaSampleNames <- function(mode="negative") {
+    col_name <- "file_name_neg"
+    if (mode == "positive") {
         col_name <- "file_name_pos"
     }
-    tp0_sample_names <- meta_all[meta_all[, "Timepoint..PIMS."] == 0, col_name]
+    tp0_sample_names <- meta_all[meta_all[, "Timepoint"] == 0, col_name]
     tp0_sample_names <- as.character(tp0_sample_names)
     tp0_sample_names <- na.omit(tp0_sample_names)
     return(tp0_sample_names)
