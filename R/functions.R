@@ -162,7 +162,6 @@ getRegimenMetadata <- function(samples, mode="negative") {
 
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
-        print(samples[i])
         regimen <- meta[which(meta[, col_name]==samples[i]), "Regimen"]
         regimen <- as.character(regimen)
         if (regimen=="X") {
@@ -189,7 +188,7 @@ getQCSampleNames <- function(mode="negative") {
         col_name <- "file_name_pos"
     }
 
-    qc_names <- meta[meta_all[, "type"] == 'QC', col_name]
+    qc_names <- meta[meta[, "type"] == 'QC', col_name]
     qc_names <- as.character(qc_names)
     return(qc_names)
 }
