@@ -20,6 +20,59 @@ pos_dir = paste(datadir, "gsk/raw/esi_pos/netcdf", sep="")
 meta <- read.csv(paste(datadir, "gsk/meta/meta_20180831.csv", sep=""))
 meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
 
+#' getFileNameColumn
+#'
+#' Returns the column name containing the filenames for samples measured in
+#' negative or positive ion mode.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return file_path. A column name for positive or negative sample names
+getFileNameColumn <- function(mode="negative") {
+    colname <- "file_name_neg"
+    if (mode == "positive") {
+        colname <- "file_name_pos"
+    }
+    return(colname)
+}
+
+#' getGSKFilePath
+#'
+#' Returns the file path for a given sample measured in negative or positive
+#' mode.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return file_path. A vector containing block metadata.
+getGSKFilePath <- function(gsk_filename) {
+    file_path <- ""
+    if (grepl("neg", gsk_filename)) {
+        if (grepl("block1", gsk_filename)) {
+            file_path <- paste(neg_dir, "/block1neg/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block2", gsk_filename)) {
+            file_path <- paste(neg_dir, "/block2neg/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block3", gsk_filename)) {
+            file_path <- paste(neg_dir, "/block3neg/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block4", gsk_filename)) {
+            file_path <- paste(neg_dir, "/block4neg/", gsk_filename, ".cdf", sep = "")
+        }
+    }
+    else if (grepl("pos", gsk_filename)) {
+        if (grepl("block1", gsk_filename)) {
+            file_path <- paste(pos_dir, "/block1pos/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block2", gsk_filename)) {
+            file_path <- paste(pos_dir, "/block2pos/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block3", gsk_filename)) {
+            file_path <- paste(pos_dir, "/block3pos/", gsk_filename, ".cdf", sep = "")
+        }
+        else if (grepl("block4", gsk_filename)) {
+            file_path <- paste(pos_dir, "/block4pos/", gsk_filename, ".cdf", sep = "")
+        }
+    }
+    return(file_path)
+}
+
 #' getAllGSKFilePaths
 #'
 #' Returns a vector containing the file paths for all negative or positive QC
@@ -29,83 +82,13 @@ meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
 #' samples.
 getAllGSKFilePaths <- function(mode="negative") {
     file_paths <- character()
-
-    if (mode == "negative") {
-        files <- meta[, "file_name_neg"]
-        files <- as.character(files)
-        for (i in 1:length(files)) {
-            if (grepl("block1", files[i])) {
-                file_paths[i] <- paste(neg_dir, "/block1neg/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block2", files[i])) {
-                file_paths[i] <- paste(neg_dir, "/block2neg/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block3", files[i])) {
-                file_paths[i] <- paste(neg_dir, "/block3neg/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block4", files[i])) {
-                file_paths[i] <- paste(neg_dir, "/block4neg/", files[i], ".cdf", sep = "")
-            }
-        }
-    }
-    else {
-        files <- meta[, "file_name_pos"]
-        files <- as.character(files)
-        for (i in 1:length(files)) {
-            if (grepl("block1", files[i])) {
-                file_paths[i] <- paste(pos_dir, "/block1pos/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block2", files[i])) {
-                file_paths[i] <- paste(pos_dir, "/block2pos/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block3", files[i])) {
-                file_paths[i] <- paste(pos_dir, "/block3pos/", files[i], ".cdf", sep = "")
-            }
-            else if (grepl("block4", files[i])) {
-                file_paths[i] <- paste(pos_dir, "/block4pos/", files[i], ".cdf", sep = "")
-            }
-        }
+    colname <- getFileNameColumn(mode)
+    files <- meta[, colname]
+    files <- as.character(files)
+    for (i in 1:length(files)) {
+        file_paths[i] <- getGSKFilePath(files[i])
     }
     return(file_paths)
-}
-
-#' getGSKFilePath
-#'
-#' Returns the file path for a given sample measured in negative or positive
-#' mode.
-#' @author Peter Li <peter@gigasciencejournal.com>
-#' @return gsk_file_path. A vector containing block metadata.
-getGSKFilePath <- function(gsk_filename) {
-    gsk_file_path <- ""
-    if (grepl("neg", gsk_filename)) {
-        if (grepl("block1", gsk_filename)) {
-            gsk_file_path <- paste(neg_dir, "/block1neg/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block2", gsk_filename)) {
-            gsk_file_path <- paste(neg_dir, "/block2neg/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block3", gsk_filename)) {
-            gsk_file_path <- paste(neg_dir, "/block3neg/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block4", gsk_filename)) {
-            gsk_file_path <- paste(neg_dir, "/block4neg/", gsk_filename, ".cdf", sep = "")
-        }
-    }
-    else if (grepl("pos", gsk_filename)) {
-        if (grepl("block1", gsk_filename)) {
-            gsk_file_path <- paste(pos_dir, "/block1pos/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block2", gsk_filename)) {
-            gsk_file_path <- paste(pos_dir, "/block2pos/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block3", gsk_filename)) {
-            gsk_file_path <- paste(pos_dir, "/block3pos/", gsk_filename, ".cdf", sep = "")
-        }
-        else if (grepl("block4", gsk_filename)) {
-            gsk_file_path <- paste(pos_dir, "/block4pos/", gsk_filename, ".cdf", sep = "")
-        }
-    }
-    return(gsk_file_path)
 }
 
 #' getBlockMetadata
@@ -116,12 +99,9 @@ getGSKFilePath <- function(gsk_filename) {
 getBlockMetadata <- function(sample_names, mode="negative") {
     block_meta <- character(0)
 
-    col_name="file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    colname <- getFileNameColumn(mode)
     for (i in 1:length(sample_names)) {
-        block_meta[i] <- meta[which(meta[, col_name]==sample_names[i]), "block"]
+        block_meta[i] <- meta[which(meta[, colname]==sample_names[i]), "block"]
     }
     return(block_meta)
 }
@@ -132,14 +112,11 @@ getBlockMetadata <- function(sample_names, mode="negative") {
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return sample_meta. A vector containing sample type metadata.
 getQCSampleMetadata <- function(samples, mode="negative") {
-    col_name="file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    colname <- getFileNameColumn(mode)
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
-        if (meta[which(meta[, col_name]==samples[i]), "type"] == 'QC') {
-            type <- meta[which(meta[, col_name]==samples[i]), "type"]
+        if (meta[which(meta[, colname]==samples[i]), "type"] == 'QC') {
+            type <- meta[which(meta[, colname]==samples[i]), "type"]
             sample_meta[i] <- "QC"
         }
         else {
@@ -155,10 +132,7 @@ getQCSampleMetadata <- function(samples, mode="negative") {
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return sample_meta. A vector containing regimen information.
 getRegimenMetadata <- function(samples, mode="negative") {
-    col_name="file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
 
     sample_meta <- character(0)
     for (i in 1:length(samples)) {
@@ -181,12 +155,7 @@ getRegimenMetadata <- function(samples, mode="negative") {
 #' @author Peter Li <peter@gigasciencejournal.com>
 #' @return qc_names. A vector containing negative or positive QC sample names.
 getQCSampleNames <- function(mode="negative") {
-    if (mode == "negative") {
-        col_name <- "file_name_neg"
-    }
-    else {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
 
     qc_names <- meta[meta[, "type"] == 'QC', col_name]
     qc_names <- as.character(qc_names)
@@ -212,12 +181,7 @@ getNumberOfQCs <- function(mode="negative") {
 #' @return plasma_names. A vector containing a list of negative or positive
 #' plasma sample names.
 getPlasmaSampleNames <- function(mode="negative") {
-    if (mode == "negative") {
-        col_name <- "file_name_neg"
-    }
-    else {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
     plasma_names <- meta[meta[, "type"] == 'Sample', col_name]
     plasma_names <- as.character(plasma_names)
     return(plasma_names)
@@ -232,10 +196,7 @@ getPlasmaSampleNames <- function(mode="negative") {
 #' @return plasma_names. A vector containing a list of negative or positive
 #' plasma sample names for a given block.
 getPlasmaSampleNamesByBlock <- function(mode="negative", block="1") {
-    col_name <- "file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
     # Get data associated for specified block
     block_data <- meta[meta[, "block"] == block, ]
     # Get plasma sample names from block_data
@@ -253,10 +214,7 @@ getPlasmaSampleNamesByBlock <- function(mode="negative", block="1") {
 #' @return plasma_names. A vector containing a list of all QC and plasma sample
 #' names for a given block.
 getAllSampleNamesByBlock <- function(mode="negative", block="1") {
-    col_name <- "file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
     # Get all sample names from block_data
     all_sample_names <- meta[meta[, "block"] == block, col_name]
     all_sample_names <- as.character(all_sample_names)
@@ -284,10 +242,7 @@ getNumberOfPlasmaSamples <- function(mode="negative") {
 #' @return tp0_sample_names. An integer showing number of positive or negative
 #' plasma sample names.
 getTP0PlasmaSampleNames <- function(mode="negative") {
-    col_name <- "file_name_neg"
-    if (mode == "positive") {
-        col_name <- "file_name_pos"
-    }
+    col_name <- getFileNameColumn(mode)
     tp0_sample_names <- meta_all[meta_all[, "Timepoint"] == 0, col_name]
     tp0_sample_names <- as.character(tp0_sample_names)
     tp0_sample_names <- na.omit(tp0_sample_names)
