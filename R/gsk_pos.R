@@ -1,5 +1,5 @@
-# Title     : TODO
-# Objective : TODO
+# Title     : gsk_pos.R
+# Objective : Processing of GSK positive mode data set
 # Created by: peterli
 # Created on: 30/7/2018
 
@@ -15,15 +15,15 @@ library(ropls)
 library(MAIT)
 library(Morpho)
 
-# source("functions.R")
+source("functions.R")
 
 # Location of GSK data set
 datadir = "/home/peter/"
 # File path for positive files
 pos_dir = paste(datadir, "gsk/raw/esi_pos/netcdf", sep="")
-
-# Output path
+# Output directory
 output_path <- paste(pos_dir, "/output", sep="")
+
 
 ######################################
 # Read in metadata for data analysis #
@@ -31,7 +31,7 @@ output_path <- paste(pos_dir, "/output", sep="")
 
 # Read in and sort metadata files
 meta <- read.csv(paste(datadir, "gsk/meta/meta_20180831.csv", sep=""))
-meta <- meta[naturalorder(meta$file_name_pos),]
+meta <- meta[naturalorder(meta$file_name_pos), ]
 meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
 meta_all <- meta_all[naturalorder(meta_all$file_name_pos), ]
 
@@ -42,22 +42,6 @@ pos_file_paths <- getAllGSKFilePaths(mode="positive")
 pos_files <- meta[, "file_name_pos"]
 pos_files <- as.character(pos_files)
 
-# There are 371 positive files
-length(pos_files)
-## [1] 371
-
-# 21 of the 371 positive samples are duplicated
-dup <- pos_files[duplicated(pos_files)]
-# All these 21 samples are QC samples
-## > getQCSampleMetadata(dup, mode="positive")
-## [1] "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC" "QC"
-
-# Remove duplicated file paths for XCMS processing
-pos_file_paths <- unique(pos_file_paths)
-
-# Get unique positive sample names
-unique_pos_files <- unique(pos_files)
-
 
 ######################################
 # Apply XCMS onto QC and sample data #
@@ -66,15 +50,14 @@ unique_pos_files <- unique(pos_files)
 # Create xcmsSet object using findPeaks parameters from Eva's thesis
 # This is compute intensive and takes time to complete!!
 pos_xset <- xcmsSet(pos_file_paths, step=0.02, snthresh=3, mzdiff=0.05)
-
 # Match peaks representing same analyte across samples
 grp_pos_xset <- group(pos_xset, bw=10, mzwid=0.05)
-
 # Create CAMERA object
 pos_xsa <- xsAnnotate(grp_pos_xset)
-# Get peaklist
+# Get peaklist - contains 6200 peaks identified by XCMS
 pos_peaklist <- getPeaklist(pos_xsa)
-# Add numeric index to positive peaklist to keep track of peaks during data pre-treatment
+# Add numeric index to last column in pos_peaklist to keep track of peaks during
+# data pre-treatment
 pos_peaklist$idx <- seq.int(nrow(pos_peaklist))
 # Move index to left hand side of data frame
 pos_peaklist <- pos_peaklist[, c(ncol(pos_peaklist), 1:(ncol(pos_peaklist)-1))]
@@ -87,60 +70,12 @@ write.table(
     row.names=TRUE,
     col.names=TRUE)
 
+
 #############################
 # Load saved peak list data #
 #############################
 
-xcms_pos_peaks = read.csv(paste(output_path, "/xcms_pos_peaklist.csv", sep=""))
-
-
-#####################################################
-# Do PCA on unprocessed positive block 3 QC samples #
-# which have been used as block 2 QC samples and    #
-# block 2 plasma samples                            #
-#####################################################
-
-## length(dup)
-## [1] 21
-
-# Get block 2 plasma sample names
-block2_plasma_sample_names <- getPlasmaSampleNamesByBlock(mode='positive', block='2')
-
-
-# Prepare pos_peaklist data
-pca_data <- cbind(xcms_pos_peaks[, dup], xcms_pos_peaks[, block2_plasma_sample_names])
-# Remove row peaks containing missing values
-pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
-
-# Prepare metadata for labelling PCA graph
-samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples, mode="positive")
-sample_meta <- getQCSampleMetadata(samples, mode="positive")
-pca_meta <- cbind(block_meta, sample_meta)
-
-# Transpose data
-pca_data <- t(pca_data)
-
-# Plot PCA results
-autoplot(
-    prcomp(pca_data),
-    data=pca_meta,
-    shape='block_meta',
-    colour='sample_meta',
-    main='PCA on unprocessed positive block2 sample data and its block3 QC samples',
-    frame=TRUE,
-    frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_pos_qc_sample_block2_samples_pca.png", sep=""))
-
-autoplot(
-    prcomp(pca_data),
-    data=pca_meta,
-    shape='block_meta',
-    colour='block_meta',
-    main='PCA on unprocessed positive block2 sample data and its block3 QC samples',
-    frame=TRUE,
-    frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_pos_qc_sample_block2_samples_pca.png", sep=""))
+pos_peaklist <- read.csv(paste(output_path, "/xcms_pos_peaklist.csv", sep=""))
 
 
 #################################################
@@ -148,7 +83,7 @@ ggsave(paste(output_path, "/unprocessed_pos_qc_sample_block2_samples_pca.png", s
 #################################################
 
 # Prepare pos_peaklist data
-pca_data <- xcms_pos_peaks[, unique_pos_files]
+pca_data <- pos_peaklist[, pos_files]
 # Remove row peaks containing missing values
 pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
@@ -167,23 +102,23 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='sample_meta',
-    main='PCA on unprocessed positive QC and sample data',
+    main='PCA scores plots for positive ion mode QC and plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_pos_qc_sample_pca_shape_block_colour_sample.png", sep=""))
+ggsave(paste(output_path, "/pos_qc_plasma_pca1.png", sep=""))
 
 autoplot(
     prcomp(pca_data),
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on unprocessed positive QC and sample data',
+    main='PCA scores plots for positive ion mode QC and plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_pos_qc_sample_pca.png", sep=""))
+ggsave(paste(output_path, "/pos_qc_plasma_pca2.png", sep=""))
 
-# There is an outlier which is affect the PCA display
-# Need to remove this outlier
+# There is an outlier by a block 4 plasma sample
+# which is skewing the PCA result
 
 
 ##############################
@@ -191,17 +126,15 @@ ggsave(paste(output_path, "/unprocessed_pos_qc_sample_pca.png", sep=""))
 ##############################
 
 # Prepare QC positive peaklist data
-meta_all_qc_rows <- meta_all[, "type"]=="QC"
-pos_qc_names <- meta_all[meta_all_qc_rows, "file_name_pos"]
-pos_qc_names <- as.character(pos_qc_names)
+pos_qc_names <- getQCSampleNames(mode="positive")
 # Subset QC data from positive peak list
-pca_data <- xcms_pos_peaks[, pos_qc_names]
+pca_data <- pos_peaklist[, pos_qc_names]
 # Remove row peaks containing missing values
 pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
@@ -214,10 +147,10 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on unprocessed positive QC samples',
+    main='PCA scores plots for positive ion mode QC sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/unprocessed_pos_qc_pca.png", sep=""))
+ggsave(paste(output_path, "/pos_qc_pca.png", sep=""))
 
 
 ############################################################################
@@ -225,16 +158,17 @@ ggsave(paste(output_path, "/unprocessed_pos_qc_pca.png", sep=""))
 ############################################################################
 
 # Prepare QC positive data
-qc_pos_peaklist <- xcms_pos_peaks[, pos_qc_names]
+pos_qc_peaklist <- xcms_pos_peaks[, pos_qc_names]
 # Calculate percentage of missing values by peak row
-percent_nas <- rowMeans(is.na(qc_pos_peaklist))
+percent_nas <- rowMeans(is.na(pos_qc_peaklist))
 # Add columns
-idx <- rownames(qc_pos_peaklist)
-qc_pos_peaklist <- cbind(idx, percent_nas, qc_pos_peaklist)
+idx <- rownames(pos_qc_peaklist)
+pos_qc_peaklist <- cbind(idx, percent_nas, pos_qc_peaklist)
 # Remove rows containing 40% or more missing values
-na_filtered_qc_pos_peaklist <- qc_pos_peaklist[qc_pos_peaklist$percent_nas < .40, ]
+na_filtered_pos_qc_peaklist <- pos_qc_peaklist[pos_qc_peaklist$percent_nas < .40, ]
 
-# qc_pos_peaklist has 6198 rows. After filtering rows with 40% na, na_filtered_qc_pos_peaklist contains 4574 rows
+# pos_qc_peaklist has 6200 rows. After filtering out 1747 rows with 40% na,
+# na_filtered_pos_qc_peaklist contains 4453 rows
 
 
 ###############################################################
@@ -242,14 +176,14 @@ na_filtered_qc_pos_peaklist <- qc_pos_peaklist[qc_pos_peaklist$percent_nas < .40
 ###############################################################
 
 # Prepare positive peaklist data
-nr <- colnames(na_filtered_qc_pos_peaklist) %in% c("percent_nas", "idx")
-pca_data <- na_filtered_qc_pos_peaklist[, !nr]
+unwanted_cols <- colnames(na_filtered_pos_qc_peaklist) %in% c("percent_nas", "idx")
+pca_data <- na_filtered_pos_qc_peaklist[, !unwanted_cols]
 # Remove row peaks containing missing values
 pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
@@ -262,7 +196,7 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on positive QCs after peaks missing 40% values removed',
+    main='PCA scores plots for positive ion mode QC samples after removing peaks with >40% NA',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/40_percent_filtered_pos_qc_pca.png", sep=""))
@@ -273,33 +207,42 @@ ggsave(paste(output_path, "/40_percent_filtered_pos_qc_pca.png", sep=""))
 ###################################################################
 
 # Prepare data for knn analysis
-nr <- colnames(na_filtered_qc_pos_peaklist) %in% c("percent_nas", "idx")
-impute_data <- na_filtered_qc_pos_peaklist[, !nr]
+unwanted_cols <- colnames(na_filtered_pos_qc_peaklist) %in% c("percent_nas", "idx")
+impute_data <- na_filtered_pos_qc_peaklist[, !unwanted_cols]
 # Transpose data
-impute_data <- t(impute_data)
+impute_data <- t(impute_data)  # 84 rows=samples, 4453 columns=peaks
 
 # Identify which column peak features have missing values
 na_peak_cols <- colnames(impute_data)[colSums(is.na(impute_data)) > 0]
 # Perform K-means clustering using VIM - takes time!!
-knn <- kNN(impute_data, variable=na_peak_cols)
+knn_pos_qc <- kNN(impute_data, variable=na_peak_cols)
+
+# Output knn data because it's creation is compute-intensive
+write.table(
+    knn_pos_qc,
+    file = paste(output_path, "/knn_pos_qc.csv", sep=""),
+    sep=",",
+    row.names=TRUE,
+    col.names=TRUE)
+
 # Copy peak features from kNN result
-knn_qc_pos_peaklist <- knn[, 1:ncol(impute_data)]
-knn_qc_pos_peaklist <- as.matrix(knn_qc_pos_peaklist)
+knn_pos_qc_peaklist <- knn_pos_qc[, 1:ncol(impute_data)]
+knn_pos_qc_peaklist <- as.matrix(knn_pos_qc_peaklist)
 # Copy rownames and column names from impute_knn_data to rownames for knn
-rownames(knn_qc_pos_peaklist) <- rownames(impute_data)
-colnames(knn_qc_pos_peaklist) <- colnames(impute_data)
+rownames(knn_pos_qc_peaklist) <- rownames(impute_data)
+colnames(knn_pos_qc_peaklist) <- colnames(impute_data)
 # Transpose
-knn_qc_pos_peaklist <- t(knn_qc_pos_peaklist)
+knn_pos_qc_peaklist <- t(knn_pos_qc_peaklist)
 
 
 #####################################################
 # Do PCA plot to check effect of imputed knn values #
 #####################################################
-pca_data <- knn_qc_pos_peaklist
+pca_data <- knn_pos_qc_peaklist
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
@@ -323,7 +266,7 @@ ggsave(paste(output_path, "/impute_knn_pos_qc_pca.png", sep=""))
 ######################################
 
 # Prepare data for RSD analysis
-rsd_qc_pos_peaklist <- knn_qc_pos_peaklist
+rsd_qc_pos_peaklist <- knn_pos_qc_peaklist
 
 # Calculate RSD
 rowRSD <- apply(rsd_qc_pos_peaklist, 1, function(data) {
@@ -346,7 +289,7 @@ pca_data <- rsd_qc_pos_peaklist
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta)
 
@@ -386,10 +329,13 @@ filtered_qc_plasma_peaklist <- cbind(rsd_qc_pos_peaklist, filtered_plasma_peakli
 pca_data <- filtered_qc_plasma_peaklist
 # Remove row peaks containing missing values
 pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
+# Only peak 1051 remains after all rows containing
+# missing values are removed. Therefore no point
+# performing PCA.
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
@@ -446,14 +392,14 @@ knn_qc_plasma_peaklist <- t(knn_qc_plasma_peaklist)
 
 
 #########################################################################
-# Do PCA on combined rsd_qc_neg_peaklist and pretreated_sample_peaklist #
+# Do PCA on combined rsd_qc_pos_peaklist and pretreated_sample_peaklist #
 #########################################################################
 
 pca_data <- knn_qc_plasma_peaklist
 
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples)
+block_meta <- getBlockMetadata(samples, mode="positive")
 # Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 # Convert to block_meta character vector to matrix
@@ -504,19 +450,19 @@ signal_corr_data <- data.frame(signal_corr_data)
 # for the normalisation step. These ".1" sample names are in
 # signal_corr_data and can be removed as follows:
 
-signal_corr_data_colnames <- colnames(signal_corr_data)
-bad_cols <- which(grepl("\\.1", signal_corr_data_colnames))
-signal_corr_data <- signal_corr_data[,-bad_cols]
+# signal_corr_data_colnames <- colnames(signal_corr_data)
+# bad_cols <- which(grepl("\\.1", signal_corr_data_colnames))
+# signal_corr_data <- signal_corr_data[,-bad_cols]
 
 # Check
 head(signal_corr_data[, 1:4])
-##     name GSK_pos_block1_81 GSK_pos_block1_86 GSK_pos_block3_82
-## 20    20  77943.6834000002  77943.6834000002  77943.6834000002
-## 37    37  89185.3310418605  89185.3310418605  89185.3310418605
-## 56    56  1409220.34612157  1409220.34612157  1485652.15393913
-## 68    68  321244.606438095  756865.658822728  761105.699639999
-## 70    70  51248.4487704545  51248.4487704545  60061.8399727272
-## 105  105  249396.199392857  249396.199392857  293089.754507247
+##     name GSK_pos_block1_09 GSK_pos_block1_10 GSK_pos_block1_16
+## 210  210  203705.219952001  220888.421936538  179189.455627451
+## 257  257   106059.74673913      85431.038875  102438.816159574
+## 439  439  177268.260333333   177413.66791746  177268.260333333
+## 478  478  319688.213197872        238508.938  319688.213197872
+## 727  727  85638.9250857143  85638.9250857143  84019.8217129621
+## 815  815  107910.199359322     130026.891285     130026.891285
 
 
 # # Add colname for first column
@@ -575,7 +521,7 @@ write.table(
 
 para <- transformation(para$metaXpara, valueID = "valueNorm")
 norm_pos_peaklist <- getPeaksTable(para, valueID="valueNorm")
-# Format normalised negative peaklist data
+# Format normalised positive peaklist data
 # Use sample column as rownames
 rownames(norm_pos_peaklist) <- norm_pos_peaklist$sample
 # Remove columns
@@ -587,8 +533,183 @@ norm_pos_peaklist <- t(norm_pos_peaklist)
 norm_pos_peaklist <- norm_pos_peaklist[naturalorder(rownames(norm_pos_peaklist)), ]
 write.table(
     norm_pos_peaklist,
-    file=paste(output_path, "norm_pos_data.csv", sep=""),
+    file=paste(output_path, "/norm_pos_data.csv", sep=""),
     sep=",",
     row.names=TRUE,
     col.names=TRUE)
 
+
+#####################################
+# Do PCA to check signal correction #
+#####################################
+
+# Prepare data
+pca_data <- norm_pos_peaklist
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples, mode="positive")
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
+regimen_meta <- getRegimenMetadata(samples, mode="positive")
+# Convert block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Highlight sample type and batch in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    shape='block_meta',
+    colour='sample_type_meta',
+    main='PCA on normalised positive QC and sample data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_sample_type.png", sep=""))
+
+# Highlight regimens in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='regimen_meta',
+    main='PCA on normalised positive QC and sample data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_regimens.png", sep=""))
+
+# Highlight blocks in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='block_meta',
+    shape='sample_type_meta',
+    main='PCA on normalised positive QC and sample data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_blocks.png", sep=""))
+
+
+##########################################################
+# Normalise plasma data to QCs by division of the median #
+# feature intensity responses measured for QC samples    #
+# with the intensity response of each feature for a      #
+# plasma sample                                          #
+##########################################################
+
+# Get all positive QC sample names
+pos_qc_names <- getQCSampleNames(mode="positive")
+# Get positive QC data
+pos_norm_qc_data <- norm_pos_peaklist[, pos_qc_names]
+# Calculate median peak intensity
+pos_qc_medians <- apply(pos_norm_qc_data, 1, median, na.rm=TRUE)
+# Get all positive plasma sample names
+pos_plasma_names <- getPlasmaSampleNames(mode="positive")
+# Get positive QC data
+pos_norm_plasma_peaklist <- norm_pos_peaklist[, pos_plasma_names]
+# Divide all plasma peak intensity values with the relevant median QC peak intensity
+median_norm_pos_plasma_peaklist <- pos_norm_plasma_peaklist/pos_qc_medians
+
+
+###########################################
+# Do PCA to check QC median normalisation #
+###########################################
+
+# Prepare data containing both QC and plasma sample data
+pca_data <- cbind(pos_norm_qc_data, median_norm_pos_plasma_peaklist)
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples, mode="positive")
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
+regimen_meta <- getRegimenMetadata(samples, mode="positive")
+# Convert block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Highlight sample type and batch in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='regimen_meta',
+    main='PCA on QC-median normalised positive QC and plasma data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/QC_median_norm_pos_QC_plasma_peaklist.png", sep=""))
+
+####
+
+# Prepare data containing only QC data
+pca_data <- cbind(median_norm_pos_plasma_peaklist)
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples, mode="positive")
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
+regimen_meta <- getRegimenMetadata(samples, mode="positive")
+# Convert block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Highlight sample type and batch in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='regimen_meta',
+    main='PCA on QC-median normalised plasma data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/QC_median_norm_pos_plasma_peaklist.png", sep=""))
+
+
+##########################################################
+# Normalise data to time point 0 to partially compensate #
+# for metabolic differences among the volunteers and to  #
+# identify the changes in metabolome that are relative   #
+# to the baseline                                        #
+##########################################################
+
+# Get all TP 0 data
+tp0_pos_plasma_names <- getTP0PlasmaSampleNames(mode="positive")
+tp0_pos_plasma_peaklist <- norm_pos_peaklist[, tp0_pos_plasma_names]
+# Calculate average value for each TP0 peak
+tp0_means <- rowMeans(tp0_pos_plasma_peaklist)
+# Divide all data with tp0 means
+tp0_norm_plasma_peaklist <- median_norm_pos_plasma_peaklist/tp0_means
+
+
+#####################################
+# Do PCA to check TP0 normalisation #
+#####################################
+
+# Prepare data
+pca_data <- cbind(tp0_norm_plasma_peaklist)
+
+# Prepare metadata for labelling PCA graph
+samples <- colnames(pca_data)
+block_meta <- getBlockMetadata(samples, mode="positive")
+# Sample type information
+sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
+regimen_meta <- getRegimenMetadata(samples, mode="positive")
+# Convert block_meta character vector to matrix
+pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
+
+# Transpose data
+pca_data <- t(pca_data)
+
+# Highlight sample type and batch in PCA plot
+autoplot(
+    prcomp(pca_data),
+    data=pca_meta,
+    colour='regimen_meta',
+    main='PCA on TP0 and QC-median normalised positive plasma sample data',
+    frame=TRUE,
+    frame.type='norm')
+ggsave(paste(output_path, "/TP0_norm_peaklist_pca.png", sep=""))
