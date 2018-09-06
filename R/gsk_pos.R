@@ -158,7 +158,7 @@ ggsave(paste(output_path, "/pos_qc_pca.png", sep=""))
 ############################################################################
 
 # Prepare QC positive data
-pos_qc_peaklist <- xcms_pos_peaks[, pos_qc_names]
+pos_qc_peaklist <- pos_peaklist[, pos_qc_names]
 # Calculate percentage of missing values by peak row
 percent_nas <- rowMeans(is.na(pos_qc_peaklist))
 # Add columns
@@ -666,4 +666,4 @@ autoplot(
     main='PCA scores plot for TP0 and QC-median normalised positive plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/TP0_norm_peaklist_pca.png", sep=""))
+ggsave(paste(output_path, "/TP0_norm_neg_peaklist_pca.png", sep=""))
