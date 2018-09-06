@@ -1,6 +1,6 @@
 # Title     : functions.R
-# Objective : This code provides functions for querying metadata about the GSK
-#             longitudinal dataset.
+# Objective : Provide functions for querying metadata about the GSK longitudinal
+#             dataset
 # Created by: peterli
 # Created on: 14/8/2018
 
@@ -243,7 +243,7 @@ getNumberOfPlasmaSamples <- function(mode="negative") {
 #' plasma sample names.
 getTP0PlasmaSampleNames <- function(mode="negative") {
     col_name <- getFileNameColumn(mode)
-    tp0_sample_names <- meta_all[meta_all[, "Timepoint"] == 0, col_name]
+    tp0_sample_names <- meta[meta[, "Timepoint"] == 0, col_name]
     tp0_sample_names <- as.character(tp0_sample_names)
     tp0_sample_names <- na.omit(tp0_sample_names)
     return(tp0_sample_names)

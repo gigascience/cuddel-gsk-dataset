@@ -255,10 +255,10 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on positive QC data with imputed k-means for missing values',
+    main='PCA scores plot for positive QC data with imputed k-means for missing values',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/impute_knn_pos_qc_pca.png", sep=""))
+ggsave(paste(output_path, "/knn_pos_qc_pca.png", sep=""))
 
 
 ######################################
@@ -277,8 +277,8 @@ rowRSD <- apply(rsd_qc_pos_peaklist, 1, function(data) {
 })
 
 # Find out which rows are over 20% RSD and remove them
-bad_rows <- which(rowRSD > 20)
-rsd_qc_pos_peaklist <- rsd_qc_pos_peaklist[-bad_rows, ]
+bad_rows <- which(rowRSD > 20)  # there are 4430 peaks with >20% RSD
+rsd_qc_pos_peaklist <- rsd_qc_pos_peaklist[-bad_rows, ]  # Only 23 peaks left!
 
 
 ###########################################
@@ -302,7 +302,7 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='block_meta',
-    main='PCA on RSD-filtered QC positive data',
+    main='PCA scores plot on RSD-filtered QC positive data',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/rsd_pos_qc_pca.png", sep=""))
@@ -329,42 +329,41 @@ filtered_qc_plasma_peaklist <- cbind(rsd_qc_pos_peaklist, filtered_plasma_peakli
 pca_data <- filtered_qc_plasma_peaklist
 # Remove row peaks containing missing values
 pca_data <- pca_data[rowSums(is.na(pca_data))==0, ]
-# Only peak 1051 remains after all rows containing
-# missing values are removed. Therefore no point
-# performing PCA.
+# Only 1 peak remains after all rows containing missing values are removed.
+# Therefore no point performing PCA.
 
-# Prepare metadata for labelling PCA graph
-samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
-sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
-# Convert block_meta character vector to matrix
-pca_meta <- cbind(block_meta, sample_type_meta)
-
-# Transpose data
-pca_data <- t(pca_data)
-
-# Plot PCA results
-autoplot(
-    prcomp(pca_data),
-    data=pca_meta,
-    shape='sample_type_meta',
-    colour='block_meta',
-    main='PCA on filtered positive QCs with positive plasma samples',
-    frame=TRUE,
-    frame.type='norm')
-ggsave(paste(output_path, "/filtered_pos_qc_plasma_samples_pca.png", sep=""))
-
-# Plot PCA results
-autoplot(
-    prcomp(pca_data),
-    data=pca_meta,
-    shape='block_meta',
-    colour='sample_type_meta',
-    main='PCA on pretreated positive QCs with positive plasma samples',
-    frame=TRUE,
-    frame.type='norm')
-ggsave(paste(output_path, "/filtered_pos_qc_plasma_samples_pca_shape_block_colour_sample.png", sep=""))
+# # Prepare metadata for labelling PCA graph
+# samples <- colnames(pca_data)
+# block_meta <- getBlockMetadata(samples, mode="positive")
+# # Sample type information
+# sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
+# # Convert block_meta character vector to matrix
+# pca_meta <- cbind(block_meta, sample_type_meta)
+#
+# # Transpose data
+# pca_data <- t(pca_data)
+#
+# # Plot PCA results
+# autoplot(
+#     prcomp(pca_data),
+#     data=pca_meta,
+#     shape='sample_type_meta',
+#     colour='block_meta',
+#     main='PCA on filtered positive QCs with positive plasma samples',
+#     frame=TRUE,
+#     frame.type='norm')
+# ggsave(paste(output_path, "/filtered_pos_qc_plasma_samples_pca.png", sep=""))
+#
+# # Plot PCA results
+# autoplot(
+#     prcomp(pca_data),
+#     data=pca_meta,
+#     shape='block_meta',
+#     colour='sample_type_meta',
+#     main='PCA on pretreated positive QCs with positive plasma samples',
+#     frame=TRUE,
+#     frame.type='norm')
+# ggsave(paste(output_path, "/filtered_pos_qc_plasma_samples_pca_shape_block_colour_sample.png", sep=""))
 
 
 ###########################################################
@@ -378,10 +377,10 @@ impute_data <- t(impute_data)
 # Identify column peak features with missing values
 na_cols <- colnames(impute_data)[colSums(is.na(impute_data)) > 0]
 # Perform K-means clustering using VIM
-knn <- kNN(impute_data, variable=na_cols)
+knn_pos_qc_plasma <- kNN(impute_data, variable=na_cols)
 
 # Copy peak features from kNN result
-knn_qc_plasma_peaklist <- knn[, 1:ncol(impute_data)]
+knn_qc_plasma_peaklist <- knn_pos_qc_plasma[, 1:ncol(impute_data)]
 knn_qc_plasma_peaklist <- as.matrix(knn_qc_plasma_peaklist)
 # Copy rownames and column names
 rownames(knn_qc_plasma_peaklist) <- rownames(impute_data)
@@ -400,7 +399,6 @@ pca_data <- knn_qc_plasma_peaklist
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 # Convert to block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta)
@@ -414,7 +412,7 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='sample_type_meta',
-    main='PCA on pretreated positive QCs with knn positive samples',
+    main='PCA scores plot for pretreated positive QCs with knn positive samples',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/pretreated_qc_knn_pos_samples_pca1.png", sep=""))
@@ -425,34 +423,25 @@ autoplot(
     data=pca_meta,
     shape='sample_type_meta',
     colour='block_meta',
-    main='PCA on pretreated positive QCs with knn positive samples',
+    main='PCA scores plot for pretreated positive QCs with knn positive samples',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/pretreated_qc_knn_pos_samples_pca2.png", sep=""))
 
 
-############################################################
-# Use metaX data normalisation to correct within batch and #
-# batch-to-batch variation in positive QCs and samples     #
-############################################################
+###########################################################################
+# Use metaX data normalisation to correct within batch and batch-to-batch #
+# variation in positive QCs and samples                                   #
+###########################################################################
 
-# Need to consider batch differences affecting peaks in QCs
-# due to the 4 analytical blocks are removed by XCMS during
-# peak alignment.
+# Need to consider batch differences affecting peaks in QCs due to the 4
+# analytical blocks are removed by XCMS during peak alignment.
 
 # Prepare data
 signal_corr_data <- knn_qc_plasma_peaklist
 signal_corr_data <- cbind(rownames(signal_corr_data), signal_corr_data)
 colnames(signal_corr_data)[1] <- "name"
 signal_corr_data <- data.frame(signal_corr_data)
-
-# Some sample names contain ".1" which might be causing problems
-# for the normalisation step. These ".1" sample names are in
-# signal_corr_data and can be removed as follows:
-
-# signal_corr_data_colnames <- colnames(signal_corr_data)
-# bad_cols <- which(grepl("\\.1", signal_corr_data_colnames))
-# signal_corr_data <- signal_corr_data[,-bad_cols]
 
 # Check
 head(signal_corr_data[, 1:4])
@@ -495,7 +484,6 @@ write.table(
     sep="\t",
     row.names=TRUE,
     col.names=TRUE)
-# sampleListFile <- read.table(file = "sampleListFile.tab", sep="\t")
 
 # Do normalisation
 para <- new("metaXpara")
@@ -549,7 +537,6 @@ pca_data <- norm_pos_peaklist
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 regimen_meta <- getRegimenMetadata(samples, mode="positive")
 # Convert block_meta character vector to matrix
@@ -564,20 +551,20 @@ autoplot(
     data=pca_meta,
     shape='block_meta',
     colour='sample_type_meta',
-    main='PCA on normalised positive QC and sample data',
+    main='PCA scores plot for normalised positive QC and plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_sample_type.png", sep=""))
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca1.png", sep=""))
 
 # Highlight regimens in PCA plot
 autoplot(
     prcomp(pca_data),
     data=pca_meta,
     colour='regimen_meta',
-    main='PCA on normalised positive QC and sample data',
+    main='PCA scores plot for normalised positive QC and plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_regimens.png", sep=""))
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca2.png", sep=""))
 
 # Highlight blocks in PCA plot
 autoplot(
@@ -585,18 +572,17 @@ autoplot(
     data=pca_meta,
     colour='block_meta',
     shape='sample_type_meta',
-    main='PCA on normalised positive QC and sample data',
+    main='PCA scores plot for normalised positive QC and plasma sample data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/norm_pos_qc_sample_pca_coloured_blocks.png", sep=""))
+ggsave(paste(output_path, "/norm_pos_qc_sample_pca3.png", sep=""))
 
 
-##########################################################
-# Normalise plasma data to QCs by division of the median #
-# feature intensity responses measured for QC samples    #
-# with the intensity response of each feature for a      #
-# plasma sample                                          #
-##########################################################
+############################################################################
+# Normalise plasma data to QCs by division of the median feature intensity #
+# responses measured for QC samples with the intensity response of each    #
+# feature for a plasma sample                                              #
+############################################################################
 
 # Get all positive QC sample names
 pos_qc_names <- getQCSampleNames(mode="positive")
@@ -622,10 +608,8 @@ pca_data <- cbind(pos_norm_qc_data, median_norm_pos_plasma_peaklist)
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 regimen_meta <- getRegimenMetadata(samples, mode="positive")
-# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
 
 # Transpose data
@@ -636,45 +620,17 @@ autoplot(
     prcomp(pca_data),
     data=pca_meta,
     colour='regimen_meta',
-    main='PCA on QC-median normalised positive QC and plasma data',
+    main='PCA scores plot for QC-median normalised positive plasma data',
     frame=TRUE,
     frame.type='norm')
-ggsave(paste(output_path, "/QC_median_norm_pos_QC_plasma_peaklist.png", sep=""))
-
-####
-
-# Prepare data containing only QC data
-pca_data <- cbind(median_norm_pos_plasma_peaklist)
-
-# Prepare metadata for labelling PCA graph
-samples <- colnames(pca_data)
-block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
-sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
-regimen_meta <- getRegimenMetadata(samples, mode="positive")
-# Convert block_meta character vector to matrix
-pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
-
-# Transpose data
-pca_data <- t(pca_data)
-
-# Highlight sample type and batch in PCA plot
-autoplot(
-    prcomp(pca_data),
-    data=pca_meta,
-    colour='regimen_meta',
-    main='PCA on QC-median normalised plasma data',
-    frame=TRUE,
-    frame.type='norm')
-ggsave(paste(output_path, "/QC_median_norm_pos_plasma_peaklist.png", sep=""))
+ggsave(paste(output_path, "/QC_median_norm_pos_QC_plasma_pca.png", sep=""))
 
 
-##########################################################
-# Normalise data to time point 0 to partially compensate #
-# for metabolic differences among the volunteers and to  #
-# identify the changes in metabolome that are relative   #
-# to the baseline                                        #
-##########################################################
+##############################################################################
+# Normalise data to time point 0 to partially compensate for metabolic       #
+# differences among the volunteers and to identify the changes in metabolome #
+# that are relative to the baseline                                          #
+##############################################################################
 
 # Get all TP 0 data
 tp0_pos_plasma_names <- getTP0PlasmaSampleNames(mode="positive")
@@ -695,10 +651,8 @@ pca_data <- cbind(tp0_norm_plasma_peaklist)
 # Prepare metadata for labelling PCA graph
 samples <- colnames(pca_data)
 block_meta <- getBlockMetadata(samples, mode="positive")
-# Sample type information
 sample_type_meta <- getQCSampleMetadata(samples, mode="positive")
 regimen_meta <- getRegimenMetadata(samples, mode="positive")
-# Convert block_meta character vector to matrix
 pca_meta <- cbind(block_meta, sample_type_meta, regimen_meta)
 
 # Transpose data
@@ -709,7 +663,7 @@ autoplot(
     prcomp(pca_data),
     data=pca_meta,
     colour='regimen_meta',
-    main='PCA on TP0 and QC-median normalised positive plasma sample data',
+    main='PCA scores plot for TP0 and QC-median normalised positive plasma sample data',
     frame=TRUE,
     frame.type='norm')
 ggsave(paste(output_path, "/TP0_norm_peaklist_pca.png", sep=""))
