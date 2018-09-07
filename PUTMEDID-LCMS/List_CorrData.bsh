@@ -1,0 +1,248 @@
+// List_CorrData December 2010
+/* EITHER reads in correlation data already calculated
+/* OR reads in data and performs either Pearson or Spearman Rank correlation
+/* algorithm equivalent to Matlab Function corr(X,'rows','pairwise','type'.'Pearson') or Spearman
+/* Handles NaN, Inf and 0 in data
+// Study data - Peak List (indata) - PeakNo/mz/rt - HEADER ROW, tab-delimited *.txt file
+// EITHER correlation data (already calculated) or peak data to be correlated (mydata)
+/* CorrData - matrix m x m (no Header Row) or PeakData - matrix m peaks x n samples (no Header Row)
+/* EITHER *.txt OR *.csv file
+
+//**Returns the correlation matrix (Pearson's r) for the columns in 'data'*/
+public static double getPearsonCorrelationMatrix(int v1, int v2, double[][] data) {
+	int len = data.length;
+	double tcorr=0.0;
+	double x = 0.0;
+	double y = 0.0;
+	double xy =0.0;
+	double xSquared = 0.0;
+	double ySquared = 0.0;
+	int invalidDataCount = 0;
+	double numerator = 0.0;
+	double denominator = 0.0;
+
+    int klen=len;
+    int okflag;
+	for(int k=0;k<len;k++) {
+	    if(Double.isNaN(data[k][v1]) || Double.isInfinite(data[k][v1]) || Double.isInfinite(data[k][v2]) || Double.isNaN(data[k][v2])) {
+            klen=klen-1;
+		    continue;
+	    }
+	    x += data[k][v1];
+	    y += data[k][v2];
+		xy += data[k][v1] * data[k][v2];
+	    xSquared += Math.pow(data[k][v1],2.0);
+		ySquared += Math.pow(data[k][v2],2.0);
+    }
+	numerator = klen * xy - x * y;
+	denominator = Math.sqrt(klen * xSquared - Math.pow(x, 2.0)) * Math.sqrt(klen * ySquared - Math.pow(y, 2.0));
+	tcorr = numerator / denominator;
+
+    return tcorr;
+}
+
+//**Returns the Spearman rank correlation matrix for the columns in 'data'*/
+public static double getSpearmanCorrelationMatrix(int v1, int v2, double[][] data) {
+    int len = data.length;
+    double tcorr=0.0;
+    double x = 0.0;
+    double y = 0.0;
+    double xy =0.0;
+    double xSquared = 0.0;
+    double ySquared = 0.0;
+    double numerator = 0.0;
+    double denominator = 0.0;
+
+    Vector invalidData = new Vector();
+    for(int k=0;k<len;k++) {
+        if(Double.isInfinite(data[k][v1])||Double.isInfinite(data[k][v2])||Double.isNaN(data[k][v1])||Double.isNaN(data[k][v2])) {
+            invalidData.add(k);
+        }
+	}
+    int invalidDataSize = invalidData.size();
+    int found = 0;
+    double[][] vals = new double[2][len - invalidDataSize];
+    for(int k=0;k<len;k++) {
+        if(invalidData.indexOf(k) >=0)
+            found++;
+        else {
+            vals[0][k-found] = data[k][v1];
+            vals[1][k-found] = data[k][v2];
+        }
+    }
+    double[][] ranks = new double[len - invalidDataSize][2];
+    for(int k=0;k<2;k++) {
+        int[] ordering = ShellSortValues(vals[k], true);
+        int equalRankCount = 0;
+        for(int l=0;l<len-invalidDataSize;l++) {
+            if(l>0 && vals[k][ordering[l]] != vals[k][ordering[l-1]]) {
+                for(int m=0;m<equalRankCount;m++)
+                    ranks[ordering[l-m-1]][k] = l-(equalRankCount-1)/2.0;
+                equalRankCount = 1;
+            }
+            else
+                equalRankCount++;
+            }
+        for(int l=0;l<equalRankCount;l++)
+            ranks[ordering[len-invalidDataSize-l-1]][k] = len-invalidDataSize-(equalRankCount-1)/2.0;
+    }
+    x = 0.0;
+    y = 0.0;
+    xy =0.0;
+    xSquared = 0.0;
+    ySquared = 0.0;
+    len -= invalidDataSize;
+    for(int k=0;k<len;k++) {
+        x += ranks[k][0];
+        y += ranks[k][1];
+        xy += ranks[k][0] * ranks[k][1];
+        xSquared += Math.pow(ranks[k][0],2.0);
+        ySquared += Math.pow(ranks[k][1],2.0);
+    }
+    numerator = len * xy - x * y;
+    denominator = Math.sqrt(len * xSquared - Math.pow(x, 2.0)) * Math.sqrt(len * ySquared - Math.pow(y, 2.0));
+    tcorr = numerator / denominator;
+    len += invalidDataSize;
+
+    return tcorr;
+}
+
+/**Sorts <i>values</i> using the Shell sort algorithm. If sortAscending is true, the values will be
+in order from smallest to largest. The returned array contains the indices of <i>values</i> in the requested order.*/
+public static int[] ShellSortValues(double[]values, boolean sortAscending) {
+    int len = values.length;
+    double[] sortedVals = new double[len];
+    int[] originalIndices = new int[len];
+    for(int i=0;i<len;i++) {
+        originalIndices[i] = i;
+        sortedVals[i] = values[i];
+    }
+    int h = 1;
+    //find the largest h value possible
+    while ((h * 3 + 1) < len) {
+        h = 3 * h + 1;
+    }
+
+    while( h > 0 ) {
+        //for each set of elements (there are h sets)
+        for (int i = h - 1; i < len; i++) {
+            //pick the last element in the set
+            double val = sortedVals[i];
+            int index = originalIndices[i];
+            int j = i;
+            /*compare value to the one before it in the set
+            if they are out of order continue this loop, moving
+            elements "back" to make room for ind to be inserted.*/
+            for( j = i; (j >= h) && ((!sortAscending && sortedVals[j-h] < val) || (sortAscending && sortedVals[j-h] > val)); j -= h) {
+                sortedVals[j] = sortedVals[j-h];
+                originalIndices[j] = originalIndices[j-h];
+            }
+            //insert val into the correct place
+            sortedVals[j] = val;
+            originalIndices[j] = index;
+        }
+        //all sets h-sorted, now decrease set size
+        h = h / 3;
+    }
+    return originalIndices;
+}
+
+
+StringBuffer listofdata = new StringBuffer();
+double rtdiff = Double.parseDouble(rtread);
+double corrlim = Double.parseDouble(corrcheck);
+double tcorr=0.0;
+String tempStr="";
+Boolean OKdata=true;
+
+String iline=indata.get(0).trim();
+String[] iitems=iline.split("\t");
+int npeaks=indata.size();
+double[] rt = new double[npeaks];
+int [] PeakNo = new int[npeaks];
+double [] PeakNoDble = new double[npeaks]; //DCW
+for(int i=1;i<npeaks;i++) {
+    iline=indata.get(i).trim();
+    iitems=iline.split("\t");
+    PeakNo[i]=Integer.parseInt(iitems[0].trim());
+    PeakNoDble[i] = (double)(PeakNo[i]);
+    rt[i] = Double.parseDouble(iitems[2].trim());
+}
+
+int[] order = ShellSortValues(PeakNoDble,true); //finds Peak No. Order
+
+// mydata has header row and then n peaks and at least 3 columns
+String line=mydata.get(0).trim();
+String myseparator="/t";
+if (filetype.equals("csv")) {
+    myseparator=",";
+}
+if (filetype.equals("txt")) {
+    myseparator="\t";
+}
+String[] items=line.split(myseparator);
+int dimensionality=mydata.size();
+int ncols=items.length;
+
+// check correct data input
+if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p") || calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
+    // data needs to be n rows (peaks) x ncols columns (samples)
+    if ((ncols+1 == dimensionality) || (dimensionality+1 != npeaks)) {
+        OKdata=false;
+        tempStr="Incorrect data to calculate correlation - program aborted";
+    }
+}
+else {
+    if ((ncols != dimensionality) || (dimensionality+1 != npeaks)) {
+        OKdata=false;
+        tempStr="Data should be a square matrix (n x n) with n = no. of peaks - program aborted";
+    }
+}
+
+if (OKdata) {
+    double[][] values=new double [ncols][dimensionality];
+    for(int i=0;i<dimensionality;i++) {
+        line=mydata.get(i).trim();
+        items=line.split(myseparator);
+        for(int j=0;j<ncols;j++) {
+	        values[j][i] = Double.parseDouble(items[j].trim());
+        }
+    }
+
+    double rtgap=0;
+    for(int i=1;i<npeaks;i++) {
+        for(int j=i+1;j<npeaks;j++) {
+            //uses Peak No. order
+	        rtgap=rt[order[i]]-rt[order[j]];
+            if (rtgap<0) {
+                rtgap=-rtgap;
+            }
+            if (rtgap<rtdiff) {
+                if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p")) {
+		            tcorr=getPearsonCorrelationMatrix(order[i]-1,order[j]-1,values);
+                }
+                else {
+                    if (calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
+         	            tcorr=getSpearmanCorrelationMatrix(order[i]-1,order[j]-1,values);
+                    }
+                    else {
+		                tcorr=values[order[i]-1][order[j]-1];
+                    }
+                }
+                if (tcorr>corrlim) {
+                    if (PeakNo[order[i]]<PeakNo[order[j]]) {
+                        listofdata.append(PeakNo[order[i]]+"\t"+PeakNo[order[j]]+"\t"+tcorr+"\n");
+                    }
+                    else {
+                        listofdata.append(PeakNo[order[j]]+"\t"+PeakNo[order[i]]+"\t"+tcorr+"\n");
+                    }
+                }
+            }
+        }
+    }
+}
+else {
+    listofdata.append(tempStr);
+}
+
+String corrlist=listofdata.toString();
