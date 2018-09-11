@@ -3,6 +3,8 @@
 # Created by: peterli
 # Created on: 10/9/2018
 
+library('pracma')
+
 # Create input data
 mydata <- read.table("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_posdata.txt", sep='\t', header=TRUE)
 indata <- read.table("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pospeaks.txt", sep='\t', header=TRUE)
@@ -16,6 +18,8 @@ corrlim <- as.double(corrcheck)
 tcorr <- 0.0
 tempStr <- ""
 OKdata <- TRUE
+
+listofdata <- data.frame(PeakNo=integer(), PeakNo=integer(), tcorr=integer())
 
 # Sort out indata object
 iline <- colnames(indata)
@@ -44,20 +48,72 @@ PeakNo <- indata[, 1]
 PeakNoDble <- as.double(PeakNo)
 rt <- indata[, 3]
 
+# Find peak number order
+order <- shellSort(PeakNoDble)
+
 # Sort out mydata object
 dimensionality <- nrow(mydata)
-ncols_mydata <- ncol(mydata)
+ncols <- ncol(mydata)
 # Check if mydata has correct data structure
-if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p") || calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
-    // data needs to be n rows (peaks) x ncols columns (samples)
-    if ((ncols+1 == dimensionality) || (dimensionality+1 != npeaks)) {
-        OKdata=false;
-        tempStr="Incorrect data to calculate correlation - program aborted";
+if (calccorr == "P" | calccorr == "p" | calccorr == "S" | calccorr == "s") {
+    # Data needs to be n rows (peaks) x ncols columns (samples)
+    if (ncols+1 == dimensionality | dimensionality+1 != npeaks) {
+        OKdata <- FALSE
+        tempStr <- "Incorrect data to calculate correlation - program aborted"
+    }
+} else {
+    if (ncols != dimensionality | dimensionality+1 != npeaks) {
+        OKdata <- FALSE
+        tempStr <- "Data should be a square matrix (n x n) with n = no. of peaks - program aborted"
     }
 }
-else {
-    if ((ncols != dimensionality) || (dimensionality+1 != npeaks)) {
-        OKdata=false;
-        tempStr="Data should be a square matrix (n x n) with n = no. of peaks - program aborted";
+
+if (OKdata == TRUE) {
+    # Create matrix from mydata object with ncols rows and dimensionality columns
+    # double[][] values=new double [ncols][dimensionality];
+    # for(int i=0;i<dimensionality;i++) {
+    #     line=mydata.get(i).trim();
+    #     items=line.split(myseparator);
+    #     for(int j=0;j<ncols;j++) {
+    #         values[j][i] = Double.parseDouble(items[j].trim());
+    #     }
+    # }
+    values <- t(mydata)
+
+    rtgap <- 0
+    for(i in 1:npeaks) {
+        j <- i + 1
+        for(j in 1:npeaks) {
+            # Uses Peak No. order
+            rtgap <- rt[i]-rt[j]
+            if (rtgap<0) {
+                rtgap <- -rtgap
+            }
+            if (rtgap<rtdiff) {
+                if (calccorr == "P" | calccorr == "p") {
+                    tcorr <- getPearsonCorrelationMatrix(shellSort[i]-1, shellSort[j]-1, values);
+                }
+                else {
+                    if (calccorr == "S" | calccorr == "s") {
+                        tcorr <- getSpearmanCorrelationMatrix(shellSort[i]-1, shellSort[j]-1, values);
+                    }
+                    else {
+                        tcorr <- values[shellSort[i]-1][shellSort[j]-1];
+                    }
+                }
+                if (tcorr>corrlim) {
+                    if (PeakNo[order[i]]<PeakNo[order[j]]) {
+                        listofdata <- rbind(listofdata, c(PeakNo[order[i]], PeakNo[order[j]], tcorr))
+                    }
+                    else {
+                        listofdata <- rbind(listofdata, c(PeakNo[order[j]], PeakNo[order[i]], tcorr))
+                    }
+                }
+            }
+        }
     }
+} else {
+    listofdata <- rbind(listofdata, tempStr)
 }
+
+corrlist <- listofdata

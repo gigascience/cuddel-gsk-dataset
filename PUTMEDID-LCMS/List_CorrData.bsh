@@ -202,9 +202,9 @@ System.out.println("Size of PeakNoDble: " + PeakNoDble.length);
 
 int[] order = ShellSortValues(PeakNoDble,true); //finds Peak No. Order
 // Check out whats in order
-//for(int i=0;i<order.length;i++) {
-//    System.out.println("order: " + order[i]);
-//}
+for(int i=0;i<order.length;i++) {
+    System.out.println("order: " + order[i]);
+}
 
 System.out.println("indata line 2: " + indata.get(2));
 System.out.println("PeakNo: " + PeakNo[2]);
@@ -223,6 +223,10 @@ if (filetype.equals("txt")) {
 String[] items=line.split(myseparator);
 int dimensionality=mydata.size();
 int ncols=items.length;
+System.out.println("dimensionality (num rows in mydata): " + dimensionality);
+System.out.println("ncols in mydata: " + ncols);
+System.out.println("npeaks (num rows in indata): " + npeaks);
+System.out.println("mydata line 1: " + mydata.get(1));
 
 // check correct data input
 if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p") || calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
@@ -230,52 +234,87 @@ if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p") |
     if ((ncols+1 == dimensionality) || (dimensionality+1 != npeaks)) {
         OKdata=false;
         tempStr="Incorrect data to calculate correlation - program aborted";
+        System.out.println(tempStr);
     }
 }
 else {
     if ((ncols != dimensionality) || (dimensionality+1 != npeaks)) {
         OKdata=false;
         tempStr="Data should be a square matrix (n x n) with n = no. of peaks - program aborted";
+        System.out.println(tempStr);
     }
 }
 
+System.out.println("OKdata: " + OKdata);
+
 if (OKdata) {
+    // Check if this for loop does an transposition on mydata object
     double[][] values=new double [ncols][dimensionality];
     for(int i=0;i<dimensionality;i++) {
+        //System.out.println("i: " + i);
         line=mydata.get(i).trim();
         items=line.split(myseparator);
         for(int j=0;j<ncols;j++) {
+	        //System.out.println("j: " + j);
 	        values[j][i] = Double.parseDouble(items[j].trim());
         }
     }
+    //System.out.println("values num rows: " + values.length);
+    //System.out.println("values num columns: " + values[0].length);
+    //System.out.println("First 5 values in first 2 rows:");
+    for(int t = 0; t < values[1].length; t++) {
+       //System.out.print(values[1][t] + " - ");
+    }
+    //System.out.print("\n");
+    for(int t = 0; t < 5; t++) {
+       //System.out.print(values[2][t] + " - ");
+    }
+    //System.out.print("\n");
 
     double rtgap=0;
     for(int i=1;i<npeaks;i++) {
+        //System.out.print("Doing i: " + i + " in npeaks" + "\n");
         for(int j=i+1;j<npeaks;j++) {
+            //System.out.print("Doing j: " + j + " in npeaks" + "\n");
             //uses Peak No. order
 	        rtgap=rt[order[i]]-rt[order[j]];
+	        System.out.print("Doing i: " + i + "\n");
+	        System.out.print("Doing order[i]: " + order[i] + "\n");
+	        System.out.print("Doing rt[order[i]]: " + rt[order[i]] + "\n");
+	        System.out.print("Doing rt[i]: " + rt[i] + "\n");
+	        System.out.print("Doing j: " + j + "\n");
+	        System.out.print("Doing order[j]: " + order[j] + "\n");
+	        System.out.print("Doing rt[order[j]]: " + rt[order[j]] + "\n");
+	        System.out.print("Doing rt[j]: " + rt[j] + "\n");
+	        System.out.print("rtgap: " + rtgap + "\n");
             if (rtgap<0) {
                 rtgap=-rtgap;
+                //System.out.print("rtgap less than zero therefore rtgap is now: " + rtgap);
             }
             if (rtgap<rtdiff) {
+                //System.out.print("rtgap: " + rtgap + " less than rtdiff = " + rtdiff + "\n");
                 if (calccorr.substring(0,1).equals("P") || calccorr.substring(0,1).equals("p")) {
 		            tcorr=getPearsonCorrelationMatrix(order[i]-1,order[j]-1,values);
+		            //System.out.print("Doing i: " + i + " in npeaks" + "\n");
+		            //System.out.print("Doing j: " + j + " in npeaks" + "\n");
+		            //System.out.print("Doing rt[order[i]]: " + rt[order[i]] + "\n");
+                    //System.out.print("Doing rt[order[j]]: " + rt[order[j]] + "\n");
+                    //System.out.print("tcorr: " + tcorr + "\n");
+                }
+                else if (calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
+                    tcorr=getSpearmanCorrelationMatrix(order[i]-1,order[j]-1,values);
                 }
                 else {
-                    if (calccorr.substring(0,1).equals("S") || calccorr.substring(0,1).equals("s")) {
-         	            tcorr=getSpearmanCorrelationMatrix(order[i]-1,order[j]-1,values);
-                    }
-                    else {
-		                tcorr=values[order[i]-1][order[j]-1];
-                    }
+                    tcorr=values[order[i]-1][order[j]-1];
                 }
-                if (tcorr>corrlim) {
-                    if (PeakNo[order[i]]<PeakNo[order[j]]) {
-                        listofdata.append(PeakNo[order[i]]+"\t"+PeakNo[order[j]]+"\t"+tcorr+"\n");
-                    }
-                    else {
-                        listofdata.append(PeakNo[order[j]]+"\t"+PeakNo[order[i]]+"\t"+tcorr+"\n");
-                    }
+            }
+            // Write correlation into output if over corrlim threshold
+            if (tcorr>corrlim) {
+                if (PeakNo[order[i]]<PeakNo[order[j]]) {
+                    listofdata.append(PeakNo[order[i]]+"\t"+PeakNo[order[j]]+"\t"+tcorr+"\n");
+                }
+                else {
+                    listofdata.append(PeakNo[order[j]]+"\t"+PeakNo[order[i]]+"\t"+tcorr+"\n");
                 }
             }
         }
