@@ -4,6 +4,7 @@
 # Created on: 10/9/2018
 
 library('pracma')
+library('Hmisc')
 
 # Create input data
 mydata <- read.table("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_posdata.txt", sep='\t', header=TRUE)
@@ -84,36 +85,35 @@ if (OKdata == TRUE) {
     for(i in 1:npeaks) {
         j <- i + 1
         for(j in 1:npeaks) {
-            # Uses Peak No. order
-            rtgap <- rt[i]-rt[j]
+            # uses Peak No. order
+            rtgap=rt[order[i]]-rt[order[j]]
             if (rtgap<0) {
                 rtgap <- -rtgap
             }
             if (rtgap<rtdiff) {
                 if (calccorr == "P" | calccorr == "p") {
-                    tcorr <- getPearsonCorrelationMatrix(shellSort[i]-1, shellSort[j]-1, values);
+                    tcorr <- getPearsonCorrelationMatrix(order[i]-1, order[j]-1, values)
+                    cor.test()
+                }
+                else if (calccorr == "S" | calccorr == "s") {
+                    tcorr <- getSpearmanCorrelationMatrix(order[i]-1, order[j]-1, values)
                 }
                 else {
-                    if (calccorr == "S" | calccorr == "s") {
-                        tcorr <- getSpearmanCorrelationMatrix(shellSort[i]-1, shellSort[j]-1, values);
-                    }
-                    else {
-                        tcorr <- values[shellSort[i]-1][shellSort[j]-1];
-                    }
+                    tcorr <- values[order[i]-1][order[j]-1];
                 }
-                if (tcorr>corrlim) {
-                    if (PeakNo[order[i]]<PeakNo[order[j]]) {
-                        listofdata <- rbind(listofdata, c(PeakNo[order[i]], PeakNo[order[j]], tcorr))
-                    }
-                    else {
-                        listofdata <- rbind(listofdata, c(PeakNo[order[j]], PeakNo[order[i]], tcorr))
-                    }
+            }
+            if (tcorr>corrlim) {
+                if (PeakNo[order[i]]<PeakNo[order[j]]) {
+                    listofdata.append(PeakNo[order[i]]+"\t"+PeakNo[order[j]]+"\t"+tcorr+"\n");
+                }
+                else {
+                    listofdata.append(PeakNo[order[j]]+"\t"+PeakNo[order[i]]+"\t"+tcorr+"\n");
                 }
             }
         }
     }
 } else {
-    listofdata <- rbind(listofdata, tempStr)
+        listofdata <- rbind(listofdata, tempStr)
 }
 
 corrlist <- listofdata
