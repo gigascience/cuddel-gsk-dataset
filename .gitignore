@@ -1,4 +1,9 @@
 # Created by .ignore support plugin (hsz.mobi)
+
+## R files
+*.RData
+*.Rhistory
+
 ### JetBrains template
 .idea/
 
