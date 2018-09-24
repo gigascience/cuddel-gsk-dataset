@@ -6,6 +6,79 @@
 // Study data (mydata) - Index, Amass, RT, Median Peak Area
 // Study correlation data (corrdata) – Pidx1, Pidx2, correlation
 
+// #############################################################################
+
+import java.io.FileReader;
+
+public static ArrayList readFileToString(String fileName) {
+    BufferedReader reader = new BufferedReader(new FileReader(fileName));
+    lines = new ArrayList();
+    String line;
+    while((line = reader.readLine()) != null) {
+        lines.add(line);
+    }
+    reader.close();
+    return lines;
+}
+
+// #############################################################################
+
+// Input files
+// Select Isotopes FileTav_Isotopes.txt
+
+// Sort out input data
+indata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Isotopes.txt");
+System.out.println("indata - nrow: " + indata.size());
+String indata_line = indata.get(0);
+System.out.println("indata - ncol: " + indata_line.split("\t").length);
+
+// #############################################################################
+
+//Select Adducts File Tav_Adducts.txt
+
+// Sort out input data
+adddata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Adducts.txt");
+
+// #############################################################################
+
+//Select Reference Mass File trimMMD_sortAmass.txt
+
+refdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/trimMMD_sortAmass.txt");
+
+// #############################################################################
+
+//Select Mass File to Check Study_pospeaks.txt
+
+// Sort out input data
+mydata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pospeaks.txt");
+System.out.println("mydata - nrow: " + mydata.size());
+String mydata_line = mydata.get(0);
+System.out.println("mydata - ncol: " + mydata_line.split("\t").length);
+
+// #############################################################################
+
+//Select Correlations File Study_pos_CorrListP.txt
+
+corrdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pos_CorrListP.txt");
+
+// #############################################################################
+// Sort out parameters
+
+//Ion_mode
+elabel = "pos";
+//Mass tolerance
+lowval = "3";
+// min_massdiff
+limtol = "0.00075";
+// rtlim
+rtlim = "2.5";
+// rtmin
+rtmin = "30";
+// rtmax
+rtmax = "1200";
+// Corrlim
+mycorrlim = "0.9";
+
 // Sorts <i>values</i> using the Shell sort algorithm. If sortAscending is true,
 // the values will be in order from smallest to largest. The returned array
 // contains the indices of <i>values</i> in the requested order.
@@ -117,10 +190,13 @@ double compMF=0;
 for (int i=1;i<mydata.size();i++) {
     String inStr=mydata.get(i);
     String [] tempdata = inStr.split("\t");
+
+    System.out.println(tempdata[0]);
+
     int pval = Integer.parseInt(tempdata[0]);
     double massval = new Double(tempdata[1]).doubleValue();
     double tval = new Double(tempdata[2]).doubleValue();
-    double respval = new Double(tempdata[3]).doubleValue()
+    double respval = new Double(tempdata[3]).doubleValue();
     PeakName[i]=pval;
     sortPeaks[i]=PeakName[i];
     massdata[i]=massval;
@@ -1242,3 +1318,5 @@ else {
 }
 
 outtxt=listofdata.toString();
+
+System.out.println(outtxt);
