@@ -1,12 +1,11 @@
-# Title     : TODO
-# Objective : TODO
+# Title     : List_CorrData.R
+# Objective : Calculation of correlation between peaks
 # Created by: peterli
 # Created on: 10/9/2018
 
 library('pracma')
 
 correlatePeaks <- function(peakFeatures, mass_data, calccorr="P", corrcheck="0.7", rtread="5") {
-
     # Check if peakFeatures has correct data structure corresponding to mass_data
     dimensionality <- nrow(peakFeatures)
     #print(paste0("dimensionality = ", dimensionality))
@@ -56,27 +55,21 @@ correlatePeaks <- function(peakFeatures, mass_data, calccorr="P", corrcheck="0.7
     rtgap <- 0
     # Select a peak
     for(i in 1:npeaks) {
-        if(i == 400)
-            break
         j <- i + 1
         # print(paste0("i: ", i))
         # Select another peak to compare with first selected peak
         for(j in j:npeaks) {
-            # if(j == 1000)
-            # break
+            if(j > npeaks)
+                break
             # print(paste0("j: ", j))
             tcorr <- 0
-            # Uses Peak No. order to calculare difference in RT
+            # Uses Peak No. order to calculate difference in RT
             rtgap=rt[order[i]]-rt[order[j]]
-            #print(paste0("order[i]: ", order[i]))
-            #print(paste0("order[j]: ", order[j]))
             if (rtgap<0) {
-                #print(paste0("rtgap is less than zero"))
                 rtgap <- -rtgap
             }
             # Check if RT gap is more than the RT difference threshold
             if (rtgap<rtdiff) {
-                #print(paste0("rtgap is less than rtdiff"))
                 # Do Pearson correlation calculation if more that RT threshold
                 if (calccorr == "P" | calccorr == "p") {
                     corr <- cor.test(values[, order[i]], values[, order[j]], method = "pearson")
@@ -95,12 +88,6 @@ correlatePeaks <- function(peakFeatures, mass_data, calccorr="P", corrcheck="0.7
             # If correlation coefficient is more than correlation threshold
             # then include it in results
             if (tcorr>corrlim) {
-                # print(paste0("tcorr is greater than corrlim threshold: ", corrlim))
-                # print(paste0("i: ", i))
-                # print(paste0(values[, i]))
-                # print(paste0("j: ", j))
-                # print(paste0(values[, j]))
-                # print(paste0("tcorr result: ", tcorr))
                 if (PeakNo[order[i]]<PeakNo[order[j]]) {
                     row <- c(PeakNo[order[i]], PeakNo[order[j]], tcorr)
                     listofdata <- rbind(listofdata, row)
@@ -113,27 +100,6 @@ correlatePeaks <- function(peakFeatures, mass_data, calccorr="P", corrcheck="0.7
         }
     }
 
-
     corrlist <- listofdata
-
-    # Create tab file containg peak comparisons
-    # write.table(corrlist,
-    #             file = "Study_pos_CorrListP_Routput.txt",
-    #             append = TRUE,
-    #             sep = "\t",
-    #             row.names=FALSE,
-    #             col.names=FALSE,
-    #             quote=FALSE)
-
     return(corrlist)
 }
-
-# Read input data from files
-# Peak feature data
-# mydata <- read.table("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_posdata.txt", sep='\t', header=FALSE)
-# # Peak metadata - peak numbers, m/z values, retention times and MPAs
-# indata <- read.table("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pospeaks.txt", sep='\t', header=TRUE)
-#
-# corrlist <- correlatePeaks(mydata, indata)
-#
-# print(corrlist[1,])
