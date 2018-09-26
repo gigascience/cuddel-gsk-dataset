@@ -30,3 +30,5 @@ tags
 chef/environments/development.json
 
 log/
+
+*.DS_Store
