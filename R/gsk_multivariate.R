@@ -47,8 +47,6 @@ h(facto)
 ## [1] setosa setosa setosa setosa setosa setosa
 ## Levels: setosa versicolor virginica
 
-pca_results <- prcomp(pca_data[, 1:506])
-
 # Do CVA
 groups <- as.factor(regimens)
 cvall <- CVA(pca_results$x[, 1:5], groups)
