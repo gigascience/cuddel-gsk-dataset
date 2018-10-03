@@ -73,6 +73,9 @@ annotateMassmatch <- function() {
     }
 
     # Outputs
+    check <- matrix(ncol=7)
+    colnames(check) <- c("tdiff", "rtlim", "useLabel[oidx1]", "useLabel[oidx2]", "ncorr", "oidx1", "oidx2")
+
     # StringBuffer listofdata = new StringBuffer() // annotated data
     listofdata <- character(0)
     # StringBuffer listofcorrs = new StringBuffer()
@@ -100,6 +103,9 @@ annotateMassmatch <- function() {
     idx1 <- 0
     idx2 <- 0
 
+    # Sort mydata peak data by accurate mass
+    mydata <- mydata[order(mydata$mz), ]
+
     # Initialise - read sorted mass and RT data into an Array for fast search
     compMF <- as.double(0.0)
     # for (int i=1;i<mydata.size();i++) {
@@ -123,7 +129,8 @@ annotateMassmatch <- function() {
     # matchMF[i] <- 0
     matchMF <- double(nrow(mydata))
     # Check if data in file has been sorted by accurate mass by comparing
-    # mass of one peak with the mass of the preceding peak
+    # mass of one peak with the mass of the preceding peak - might not need
+    # this because mydata has been sorted by mz value above
     m <- shift.column(data=mydata, columns="mz")
     m <- within(m, "massCheck" <- FALSE)
     m[(m$mz.Shifted < m$mz), "massCheck"] <- TRUE
@@ -194,58 +201,113 @@ annotateMassmatch <- function() {
     # ncorr <- 0
     ncorr <- 1
     tdiff <- 0
+    counter <- 1
     # Process peak correlation data
-    # for (int i=0;i<corrdata.size();i++) {
-    apply(corrdata, 1, function(x) {
+    for (i in 1:nrow(corrdata)) {
+        # if(i == 3)
+        #     break
+    # apply(corrdata, 1, function(x) {
     #     String inStr=corrdata.get(i);
     #     String [] tempdata = inStr.split("\t");
     #     int pval1 = Integer.parseInt(tempdata[0]);
-        pval1 <- as.integer(x[1])
+        pval1 <- as.integer(corrdata[i, 1])
     #     int pval2 = Integer.parseInt(tempdata[1]);
-        pval2 <- as.integer(x[2])
+        pval2 <- as.integer(corrdata[i, 2])
+        # print(paste0("pval1: ", pval1))
+        # print(paste0("pval2: ", pval2))
     #     double tempcorr = new Double(tempdata[2]).doubleValue();
-        tempcorr <- as.double(x[3])
+        tempcorr <- as.double(corrdata[i, 3])
     #     idx1=Arrays.binarySearch(sortPeaks,pval1);
-        idx1 <- match(sortPeaks, pval1)
+        # Need to check mydata[,1] has been sorted in ascending order
+        idx1 <- match(mydata[, 1], pval1)
         idx1 <- which(idx1 == 1)
     #     idx2=Arrays.binarySearch(sortPeaks,pval2);
-        idx2 <- match(sortPeaks, pval2)
+        idx2 <- match(mydata[, 1], pval2)
         idx2 <- which(idx2 == 1)
+        # print(paste0("idx1: ", idx1))
+        # print(paste0("idx2: ", idx2))
     #     oidx1=ordpname[idx1];
         oidx1 <- ordpname[idx1]
     #     oidx2=ordpname[idx2];
         oidx2 <- ordpname[idx2]
+        # print(paste0("oidx1: ", oidx1))
+        # print(paste0("oidx2: ", oidx2))
     #     tdiff=RTdata[oidx1]-RTdata[oidx2];
-        tdiff <<- RTdata[oidx1]-RTdata[oidx2]
+        tdiff <- RTdata[oidx1]-RTdata[oidx2]
+        # print(paste0("RTdata[oidx1]: ", RTdata[oidx1]))
+        # print(paste0("RTdata[oidx2]: ", RTdata[oidx2]))
         if (tdiff<0) {
-            tdiff <<- -tdiff
+            tdiff <- -tdiff
             # print(paste0("tdiff less than zero: ", tdiff))
         }
+        # print(paste0("tdiff: ", tdiff))
         if (tdiff<rtlim & useLabel[oidx1]<9 & useLabel[oidx2]<9) {
-            Pidx1[ncorr] <<- oidx1
-            # print(paste0("Pidx1[ncorr]: ", Pidx1[ncorr]))
-            Pidx2[ncorr] <<- oidx2
-            usecorr[ncorr] <<- tempcorr
+            stuff <- c(tdiff, rtlim, useLabel[oidx1], useLabel[oidx2], ncorr, oidx1, oidx2)
+            check <- rbind(check, stuff)
+
+            Pidx1[ncorr] <- oidx1
+            Pidx2[ncorr] <- oidx2
+            usecorr[ncorr] <- tempcorr
             if (oidx1>oidx2) {
-                Pidx1[ncorr] <<- oidx2
-                Pidx2[ncorr] <<- oidx1
+                Pidx1[ncorr] <- oidx2
+                Pidx2[ncorr] <- oidx1
             }
-            totCorrs[ncorr] <<- ((Pidx1[ncorr]*50000)+Pidx2[ncorr])
-            ncorr <<- ncorr+1
+            # print(paste0("ncorr: ", ncorr))
+            # print(paste0("oidx1: ", oidx1))
+            # print(paste0("oidx2: ", oidx2))
+            # print(paste0("Pidx1[ncorr]: ", Pidx1[ncorr]))
+            # print(paste0("Pidx2[ncorr]: ", Pidx2[ncorr]))
+            totCorrs[ncorr] <- ((Pidx1[ncorr]*50000)+Pidx2[ncorr])
+            # print(paste0("totCorrs[ncorr]: ", totCorrs[ncorr]))
+            ncorr <- ncorr+1
         }
-    # }
-    })
+        counter <- counter + 1
+    }
+
+    # })
+    write.table(check, file="check_R.csv", sep = ",", col.names = TRUE, row.names = FALSE)
 
     # int[] finCorrs=new int[ncorr];
     # finCorrs <- numeric(ncorr)
     # for (int i=0;i<ncorr;i++) {
     #     finCorrs[i]=totCorrs[i];
     # }
-    finCorrs <- totCorrs
+    finCorrs <- numeric(ncorr)
+    for (i in 1:ncorr) {
+        finCorrs[i] <- totCorrs[i]
+    }
     # int[] ordcorr = ShellSortValues(finCorrs, true);
     ordcorr <- sort(finCorrs, method = "shell")
 
+    # Sort MF reference data by accurate mass
+    refdata <- refdata[order(refdata$Amass), ]
+
+    # Read sorted MF Reference data into an Array for fast search
+    # rcompMF <- as.double(0.0)
+    # for (i in 1 : nrow(refdata)) {
+    #     tcount <- tcount + 1
+    #     rheadLen <- length(refdata[i, ])
+    #     inStr <- substr(refdata[i, ], 0, rheadLen - 1)
+    #     tempdata <- strsplit(inStr, "\t")
+    #     tval <- as.double(refdata[i, 1])
+    #     MFdata[i] <- tval
+    #     MFformula[i] <- refdata[i, 2]
+        # This part is not required because refdata has been sorted above
+        # if (tval < rcompMF) {
+        #     tempStr3 <- "Reference file data needs to be sorted by Accurate Mass"
+        #     rsortedRefMF <- FALSE
+        # }
+        # rcompMF <- tval
+    # }
+
+    MFdata <- as.double(refdata[, 1])
+    MFformula <- as.double(refdata[, 2])
+
+    print(paste0(""))
     print(paste0("Size of totCorrs: ", length(totCorrs)))
+    print(paste0("Size of ncorr: ", ncorr))
+    print("Size of ncorr is used to create size of finCorrs")
+    print(paste0("Size of corrdata: ", nrow(corrdata)))
     print(paste0("Size of finCorrs: ", length(finCorrs)))
     print(paste0("Size of ordcorr: ", length(ordcorr)))
     print(paste0("totCorrs[1]: ", totCorrs[1]))
@@ -254,48 +316,17 @@ annotateMassmatch <- function() {
     print(paste0("ordcorr[37424]: ", ordcorr[37424]))
 
     # Output for performing testthat tests
-    return(rbind(elabel, lowval, limtol, rtlim, rtmin, rtmax, mycorrlim, etol, PeakLabel[3269], PeakLabel[3270], ordpname[3802], sortPeaks[3802], tdiff))
+    return(rbind(elabel, lowval, limtol, rtlim, rtmin, rtmax, mycorrlim, etol, PeakLabel[3269], PeakLabel[3270], ordpname[3802], sortPeaks[3802], tdiff, MFdata[1], ncorr, length(totCorrs), totCorrs[1]))
 
 }
 
 
-# # Read sorted MF Reference data into an Array for fast search
-# # rcompMF <- as.double(0.0)
-# # for (i in 1 : nrow(refdata)) {
-# #     tcount <- tcount + 1
-# #     rheadLen <- length(refdata[i,])
-# #     inStr <- substr(refdata[i,], 0, rheadLen - 1)
-# #     tempdata <- strsplit(inStr, "\t")
-# #     tval <- as.double(refdata[i, 1])
-# #     MFdata[i] <- tval
-# #     MFformula[i] <- refdata[i, 2]
-# #     if (tval < rcompMF) {
-# #         tempStr3 <- "Reference file data needs to be sorted by Accurate Mass"
-# #         rsortedRefMF <- FALSE
-# #     }
-# #     rcompMF <- tval
-# # }
-#
-# print(paste0("MFformula length: ", length(MFformula)))
-# print(paste0("MFformula: ", MFformula[2]))
-#
-# # Sort MF reference data by accurate mass
-# refdata <- refdata[order(refdata$Amass),]
-# # TODO: Check if preceding Amass value is smaller
-# # Could use shift function here
-# MFdata <- refdata[,1]
-# MFformula <- refdata[,2]
-#
-# print(paste0("sortedMF: ", sortedMF))
-# print(paste0("rsortedRefMF: ", rsortedRefMF))
-#
-# print(paste0("ncorr: ", ncorr))
-#
 # if (sortedMF & rsortedRefMF) {
 #     # Create framework of correlated Peaks
 #     tnum <- 0
 #     hno <- 0
 #     tno <- 0
+#     # loop thru correlations
 #     for (j in 1 < ncorr) {
 #         if(j == 2) {
 #             break
@@ -335,6 +366,8 @@ annotateMassmatch <- function() {
 #         }
 #     }
 #     stop("the script ends")
+
+
 #
 #     ogno <- as.integer(gno)
 #     for (i in 1 < nrow(mydata)) {
@@ -1358,7 +1391,7 @@ annotateMassmatch <- function() {
 # # else {
 #     # cbind(listofdata, "Data not processed - ", tempStr1, tempStr3)
 #     print(paste0("Data not processed - ", tempStr1, tempStr3))
-# # }
+# }
 #
 # outtxt <- listofdata
 #
