@@ -162,6 +162,8 @@ if (elabel.substring(0,1).equals("n") || elabel.substring(0,1).equals("N")) {
 }
 
 // Outputs
+StringBuffer tmpdata = new StringBuffer();
+
 StringBuffer listofdata = new StringBuffer(); // annotated data
 StringBuffer listofcorrs = new StringBuffer();
 StringBuffer listofsortcorrs = new StringBuffer();
@@ -235,26 +237,41 @@ Arrays.sort(sortPeaks);
 //     System.out.println("sortPeaks[" + i +"]: " + sortPeaks[i]);
 // }
 
+tmpdata.append("tdiff,rtlim,useLabel[oidx1],useLabel[oidx2],ncorr,oidx1,oidx2\n");
+
+
 int ccount=0;
 int oidx1=0;
 int oidx2=0;
 compMF=0;
 int ncorr=0;
 for (int i=0;i<corrdata.size();i++) {
+//     if(i == 5)
+//         break;
     String inStr=corrdata.get(i);
     String [] tempdata = inStr.split("\t");
     int pval1 = Integer.parseInt(tempdata[0]);
     int pval2 = Integer.parseInt(tempdata[1]);
+//     System.out.println("pval1: " + pval1);
+//     System.out.println("pval2: " + pval2);
     double tempcorr = new Double(tempdata[2]).doubleValue();
     idx1=Arrays.binarySearch(sortPeaks,pval1);
     idx2=Arrays.binarySearch(sortPeaks,pval2);
+//     System.out.println("idx1: " + idx1);
+//     System.out.println("idx2: " + idx2);
     oidx1=ordpname[idx1];
     oidx2=ordpname[idx2];
+//     System.out.println("oidx1: " + oidx1);
+//     System.out.println("oidx2: " + oidx2);
     tdiff=RTdata[oidx1]-RTdata[oidx2];
+//     System.out.println("RTdata[oidx1]: " + RTdata[oidx1]);
+//     System.out.println("RTdata[oidx2]: " + RTdata[oidx2]);
     if (tdiff<0) {
         tdiff=-tdiff;
     }
+//     System.out.println("tdiff: " + tdiff);
     if (tdiff<rtlim && useLabel[oidx1]<9 && useLabel[oidx2]<9) {
+        tmpdata.append(tdiff + "," + rtlim + "," + useLabel[oidx1] + "," + useLabel[oidx2] + "," + ncorr + "," + oidx1 + "," + oidx2 + "\n");
         Pidx1[ncorr]=oidx1;
         Pidx2[ncorr]=oidx2;
         usecorr[ncorr]=tempcorr;
@@ -262,10 +279,18 @@ for (int i=0;i<corrdata.size();i++) {
             Pidx1[ncorr]=oidx2;
             Pidx2[ncorr]=oidx1;
         }
+        System.out.println("Pidx1[ncorr]: " + Pidx1[ncorr]);
+        System.out.println("Pidx2[ncorr]: " + Pidx2[ncorr]);
         totCorrs[ncorr]=((Pidx1[ncorr]*50000)+Pidx2[ncorr]);
+        System.out.println("totCorrs[ncorr]: " + totCorrs[ncorr]);
         ncorr=ncorr+1;
     }
 }
+
+BufferedWriter writer = new BufferedWriter(new FileWriter("check.csv"));
+writer.write(tmpdata.toString());
+writer.close();
+
 // System.out.println("oidx1: " + oidx1);
 // System.out.println("oidx2: " + oidx2);
 // System.out.println("tdiff: " + tdiff);
@@ -284,6 +309,7 @@ System.out.println("Size of totCorrs: " + totCorrs.length);
 System.out.println("Size of finCorrs: " + finCorrs.length);
 System.out.println("Size of ordcorr: " + ordcorr.length);
 System.out.println("totCorrs[0]: " + totCorrs[0]);
+System.out.println("ncorr: " + ncorr);
 System.out.println("totCorrs[37423]: " + totCorrs[37423]);
 
 // System.out.println("ordcorr[37423]: " + ordcorr[37423]);

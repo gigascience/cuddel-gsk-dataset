@@ -24,13 +24,13 @@ test_that("running annotateMass has correct parameters", {
     results <- annotateMassmatch()
 
     # Create tab file containing peak comparisons
-    write.table(results,
-        file = "tmp.txt",
-        append = TRUE,
-        sep = "\t",
-        row.names=FALSE,
-        col.names=FALSE,
-        quote=FALSE)
+    # write.table(results,
+    #     file = "tmp.txt",
+    #     append = TRUE,
+    #     sep = "\t",
+    #     row.names=FALSE,
+    #     col.names=FALSE,
+    #     quote=FALSE)
 
     expect_match(toString(results[1,]), "pos")      # elabel
     expect_match(toString(results[2,]), "3")        # lowval
@@ -45,4 +45,11 @@ test_that("running annotateMass has correct parameters", {
     expect_match(toString(results[11,]), "3802")    # ordpname[3802]
     expect_match(toString(results[12,]), "3802")    # sortPeaks[3802]
     expect_match(toString(results[13,]), "0.15815") # final tdiff
+    expect_match(toString(results[14,]), "30.01056")  # MFdata[1]
+    ncorr <- results[15,]
+    expect_match(ncorr, "23889")  # ncorr
+    totCorrs_size <- results[16,]
+    expect_match(totCorrs_size, "37424")  # totCorrs_size
+    totCorrs_1 <- results[17,]
+    expect_match(totCorrs_1, "50457")  # totCorrs_1
 })
