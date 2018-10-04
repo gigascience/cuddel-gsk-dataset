@@ -279,21 +279,17 @@ for (int i=0;i<corrdata.size();i++) {
             Pidx1[ncorr]=oidx2;
             Pidx2[ncorr]=oidx1;
         }
-        System.out.println("Pidx1[ncorr]: " + Pidx1[ncorr]);
-        System.out.println("Pidx2[ncorr]: " + Pidx2[ncorr]);
+//         System.out.println("Pidx1[ncorr]: " + Pidx1[ncorr]);
+//         System.out.println("Pidx2[ncorr]: " + Pidx2[ncorr]);
         totCorrs[ncorr]=((Pidx1[ncorr]*50000)+Pidx2[ncorr]);
-        System.out.println("totCorrs[ncorr]: " + totCorrs[ncorr]);
+//         System.out.println("totCorrs[ncorr]: " + totCorrs[ncorr]);
         ncorr=ncorr+1;
     }
 }
 
-BufferedWriter writer = new BufferedWriter(new FileWriter("check.csv"));
-writer.write(tmpdata.toString());
-writer.close();
-
-// System.out.println("oidx1: " + oidx1);
-// System.out.println("oidx2: " + oidx2);
-// System.out.println("tdiff: " + tdiff);
+// BufferedWriter writer = new BufferedWriter(new FileWriter("check.csv"));
+// writer.write(tmpdata.toString());
+// writer.close();
 
 int[] finCorrs=new int[ncorr];
 for (int i=0;i<ncorr;i++) {
@@ -301,18 +297,15 @@ for (int i=0;i<ncorr;i++) {
 }
 int[] ordcorr = ShellSortValues(finCorrs, true);
 
-// for(int i =0; i < finCorrs.length; i++) {
-//     System.out.println("finCorrs:" + finCorrs[i]);
-// }
-
 System.out.println("Size of totCorrs: " + totCorrs.length);
 System.out.println("Size of finCorrs: " + finCorrs.length);
 System.out.println("Size of ordcorr: " + ordcorr.length);
 System.out.println("totCorrs[0]: " + totCorrs[0]);
 System.out.println("ncorr: " + ncorr);
 System.out.println("totCorrs[37423]: " + totCorrs[37423]);
+System.out.println("finCorrs[1]:" + finCorrs[1]);
 
-// System.out.println("ordcorr[37423]: " + ordcorr[37423]);
+System.out.println("ordcorr[23887]: " + ordcorr[23887]);
 
 BufferedWriter writer = new BufferedWriter(new FileWriter("tmp.txt"));
 for(int i =0; i < totCorrs.length; i++) {
@@ -338,14 +331,28 @@ for (int i=1;i<refdata.size();i++) {
     rcompMF=tval;
 }
 
+// for(int i=0; i<ordcorr.length;i++){
+//     if(i==20)
+//         break;
+//     System.out.println("ordcorr[i]: " + ordcorr[i]);
+//     System.out.println("finCorrs[i]: " + finCorrs[i]);
+//     System.out.println("usecorr[ordcorr[i]]: " + usecorr[ordcorr[i]]);
+// }
+
+System.out.println("Gcount size: " + Gcount.length);
 if (sortedMF && rsortedRefMF) {
     // create framework of correlated Peaks
     Integer tnum=0;
     Integer hno=0;
     Integer tno=0;
     for (int j=0;j<ncorr;j++) {
+//         if(j == 60)
+//             break;
+//         System.out.println("ordcorr[j]: " + ordcorr[j]);
+//         System.out.println("usecorr[ordcorr[j]]: " + usecorr[ordcorr[j]]);
         if (usecorr[ordcorr[j]]>0.94) {
             i=Pidx1[ordcorr[j]];
+//             System.out.println("i: " + i);
             tnum=Pidx2[ordcorr[j]];
             if (Gcount[i]==0 && Gcount[tnum]==0) {
                 gno=gno+1;
@@ -377,7 +384,16 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Gcount.csv"));
+    for(int i = 0; i < Gcount.length; i++) {
+        writer.write(Gcount[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
     Integer ogno=gno;
+    System.out.println("ogno: " + ogno);
     for (int i=1;i<mydata.size();i++) {
         Gorig[i]=Gcount[i];
     }
@@ -460,6 +476,19 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
+//     for(int i=0; i<MassMatch.length;i++){
+// //         if(i==20)
+// //             break;
+//         System.out.println("MassMatch[i]: " + MassMatch[i]);
+//     }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("MassMatch.csv"));
+    for(int i = 0; i < MassMatch.length; i++) {
+        writer.write(MassMatch[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
     // check for isotopes
     // set tol to acceptable standard dependent on small diffs between masdiffs
     double calcc;
@@ -517,6 +546,13 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Inum.csv"));
+    for(int i = 0; i < Inum.length; i++) {
+        writer.write(Inum[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
 
     // Simplified Dimer Code - H only
     holdPeak=0;
@@ -551,6 +587,13 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Inum.csv"));
+    for(int i = 0; i < Inum.length; i++) {
+        writer.write(Inum[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
     // Identify and annotate Adduct Peaks
     // initialise adduct info and look for simple adducts and then combined adducts
     int cmode;
@@ -581,6 +624,13 @@ if (sortedMF && rsortedRefMF) {
         iLabel[i]=cilabel;
         Amass[i]=camass;
     }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Amode.csv"));
+    for(int i = 0; i < Amode.length; i++) {
+        writer.write(Amode[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
 
     String tempLabel="";
     for (int j=1;j<adddata.size();j++) {
