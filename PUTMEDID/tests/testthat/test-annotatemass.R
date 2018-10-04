@@ -47,9 +47,21 @@ test_that("running annotateMass has correct parameters", {
     expect_match(toString(results[13,]), "0.15815") # final tdiff
     expect_match(toString(results[14,]), "30.01056")  # MFdata[1]
     ncorr <- results[15,]
-    expect_match(ncorr, "23889")  # ncorr
+    expect_match(ncorr, "23888")  # ncorr
     totCorrs_size <- results[16,]
     expect_match(totCorrs_size, "37424")  # totCorrs_size
     totCorrs_1 <- results[17,]
     expect_match(totCorrs_1, "50457")  # totCorrs_1
+    finCorrs_size <- results[18,]
+    expect_match(finCorrs_size, "23888")  # finCorrs_size
+    finCorrs_2 <- results[19,]
+    expect_match(finCorrs_2, "50465")  # finCorrs_2
+    ogno <- results[20,]
+    expect_match(ogno, "306")  # ogno
+    massmatch_3802 <- results[21,]
+    expect_match(massmatch_3802, "993.6790501")  # massmatch_3802
+    Inum_3801 <- results[22,]
+    expect_match(Inum_3801, "19.4998498891375")  # Inum_3801
+    Amode_15 <- results[23,]
+    expect_match(Amode_15, "5")  # Amode_15
 })
