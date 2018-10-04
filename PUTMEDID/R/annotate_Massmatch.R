@@ -85,7 +85,7 @@ annotateMassmatch <- function() {
 
     PeakMatch <- numeric(nrow(mydata))
     PeakIndex <- numeric(nrow(mydata))
-    Gcount <- numeric(nrow(mydata))
+    Gcount <- numeric(nrow(mydata) + 1)
     SGcount <- numeric(nrow(mydata))
     Gorig <- numeric(nrow(mydata))
     PCharge <- double(nrow(mydata))
@@ -150,8 +150,9 @@ annotateMassmatch <- function() {
     PeakMatch <- mydata[, 1]
     # PeakIndex[i]=i;
     PeakIndex <- seq(1, nrow(mydata))
+    # Gcount already initialised with zeros
     # Gcount[i]=0;
-    Gcount <- integer(nrow(mydata))
+    # Gcount <- integer(nrow(mydata))
     # Gorig[i]=0;
     Gorig <- integer(nrow(mydata))
     # SGcount[i]=0;
@@ -198,8 +199,8 @@ annotateMassmatch <- function() {
     oidx1 <- 0
     oidx2 <- 0
     compMF <- 0
-    # ncorr <- 0
-    ncorr <- 1
+    ncorr <- 0
+    # ncorr <- 1
     tdiff <- 0
     counter <- 1
     # Process peak correlation data
@@ -242,6 +243,7 @@ annotateMassmatch <- function() {
         }
         # print(paste0("tdiff: ", tdiff))
         if (tdiff<rtlim & useLabel[oidx1]<9 & useLabel[oidx2]<9) {
+            ncorr <- ncorr+1
             stuff <- c(tdiff, rtlim, useLabel[oidx1], useLabel[oidx2], ncorr, oidx1, oidx2)
             check <- rbind(check, stuff)
 
@@ -258,8 +260,6 @@ annotateMassmatch <- function() {
             # print(paste0("Pidx1[ncorr]: ", Pidx1[ncorr]))
             # print(paste0("Pidx2[ncorr]: ", Pidx2[ncorr]))
             totCorrs[ncorr] <- ((Pidx1[ncorr]*50000)+Pidx2[ncorr])
-            # print(paste0("totCorrs[ncorr]: ", totCorrs[ncorr]))
-            ncorr <- ncorr+1
         }
         counter <- counter + 1
     }
@@ -268,7 +268,6 @@ annotateMassmatch <- function() {
     write.table(check, file="check_R.csv", sep = ",", col.names = TRUE, row.names = FALSE)
 
     # int[] finCorrs=new int[ncorr];
-    # finCorrs <- numeric(ncorr)
     # for (int i=0;i<ncorr;i++) {
     #     finCorrs[i]=totCorrs[i];
     # }
@@ -276,14 +275,19 @@ annotateMassmatch <- function() {
     for (i in 1:ncorr) {
         finCorrs[i] <- totCorrs[i]
     }
+    write.table(finCorrs, file="finCorrs.tab", sep = "\t", col.names = FALSE, row.names = FALSE)
+    write.table(totCorrs, file="totCorrs.tab", sep = "\t", col.names = FALSE, row.names = FALSE)
+    # ShellSortValues function sorts values and returns the indices of this
+    # sorted order. It does not return the actual values sorted in requested
+    # order!
     # int[] ordcorr = ShellSortValues(finCorrs, true);
-    ordcorr <- sort(finCorrs, method = "shell")
+    ordcorr <- order(finCorrs, method = "shell")
 
     # Sort MF reference data by accurate mass
     refdata <- refdata[order(refdata$Amass), ]
 
     # Read sorted MF Reference data into an Array for fast search
-    # rcompMF <- as.double(0.0)
+    rcompMF <- as.double(0.0)
     # for (i in 1 : nrow(refdata)) {
     #     tcount <- tcount + 1
     #     rheadLen <- length(refdata[i, ])
@@ -292,18 +296,357 @@ annotateMassmatch <- function() {
     #     tval <- as.double(refdata[i, 1])
     #     MFdata[i] <- tval
     #     MFformula[i] <- refdata[i, 2]
-        # This part is not required because refdata has been sorted above
-        # if (tval < rcompMF) {
-        #     tempStr3 <- "Reference file data needs to be sorted by Accurate Mass"
-        #     rsortedRefMF <- FALSE
-        # }
-        # rcompMF <- tval
+    #     This part is not required because refdata has been sorted above
+    #     if (tval < rcompMF) {
+    #         tempStr3 <- "Reference file data needs to be sorted by Accurate Mass"
+    #         rsortedRefMF <- FALSE
+    #     }
+    #     rcompMF <- tval
     # }
-
     MFdata <- as.double(refdata[, 1])
     MFformula <- as.double(refdata[, 2])
 
-    print(paste0(""))
+    print(paste0("sortedMF: ", sortedMF))
+    print(paste0("rsortedRefMF: ", rsortedRefMF))
+    # for(i in 1:length(ordcorr)) {
+    #     if(i == 10)
+    #         break
+    #     print(paste0("[i]: ", i))
+    #     print(paste0("ordcorr[i]: ", ordcorr[i]))
+    # }
+
+    print(paste0("Gcount size: ", length(Gcount)))
+    if (sortedMF & rsortedRefMF) {
+        # Create framework of correlated Peaks
+        tnum <- 0
+        hno <- 0
+        tno <- 0
+        print(paste0("ncorr: ", ncorr))
+        # loop thru correlations
+        for (j in 1:ncorr) {
+            # if(j == 60)
+            #     break
+            # print(paste0("j: ", j))
+            # print(paste0("ordcorr[j]] ", ordcorr[j]))
+            # print(paste0("usecorr[ordcorr[j]]: ", usecorr[ordcorr[j]]))
+            if (usecorr[ordcorr[j]]>0.94) {
+                # print(paste0("usecorr[ordcorr[j]]: ", usecorr[ordcorr[j]]))
+                i <- Pidx1[ordcorr[j]]
+                # print(paste0("i: ", i))
+                tnum <- Pidx2[ordcorr[j]]
+                if (Gcount[i]==0 & Gcount[tnum]==0) {
+                    gno <- gno+1
+                    Gcount[i] <- gno
+                    Gcount[tnum] <- gno
+                }
+                if (Gcount[i]>0 & Gcount[tnum]==0) {
+                    Gcount[tnum] <- Gcount[i]
+                }
+                if (Gcount[i]==0 & Gcount[tnum]>0) {
+                    Gcount[i] <- Gcount[tnum]
+                }
+                if (Gcount[i]>0 & Gcount[tnum]>0) {
+                    if (Gcount[i] != Gcount[tnum]) {
+                        if (Gcount[i]>Gcount[tnum]) {
+                            hno <- Gcount[i]
+                            tno <- Gcount[tnum]
+                        }
+                        if (Gcount[i]<Gcount[tnum]) {
+                            hno <- Gcount[tnum]
+                            tno <- Gcount[i]
+                        }
+                        for (k in 1:nrow(mydata)) {
+                            if (Gcount[k]==hno) {
+                                Gcount[k] <- tno
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        write.table(Gcount, file="Gcount_R.csv", sep = ",", col.names = FALSE, row.names = FALSE)
+
+        ogno <- as.integer(gno)
+        print(paste0("ogno: ", ogno))
+        for (i in 1:nrow(mydata)) {
+            Gorig[i] <- Gcount[i]
+        }
+
+        cbind(listofdata, substr(mydata[1], 0, headLen - 1), "MetGroup", "PeakType", "Salt", "useLabel", "MatchedMF", "Adduct", "ppm", "Ionmode")
+
+        # Initialise for Fourier/Isotope Peaks handling
+        holdval <- as.double(0.0)
+        iratio <- as.double(0.0)
+        # tdiff <- as.double(0.0)
+        tmass <- vector(mode = "double", length = nrow(indata))
+        tlabel <- vector(mode = "character", length = nrow(indata))
+        llabel <- vector(mode = "character", length = nrow(indata))
+        ulabel <- vector(mode = "character", length = nrow(indata))
+        llim <- vector(mode = "double", length = nrow(indata))
+        ulim <- vector(mode = "double", length = nrow(indata))
+        tcharge <- vector(mode = "double", length = nrow(indata))
+        tperc <- vector(mode = "double", length = nrow(indata))
+        tempval <- 0
+        # Initialise and sort out isotope info
+        # for (i in 1 < nrow(indata)) {
+        # tempdata <- strsplit(indata[i], "\t")
+        # clabel <- tempdata[1]
+        clabel <- indata[,1]
+        # cmass <- as.double(tempdata[2])
+        cmass <- as.double(indata[,2])
+        # cllabel <- as.character(tempdata[3])
+        cllabel <- as.character(indata[,3])
+        # culabel <- as.character(tempdata[4])
+        culabel <- as.character(indata[,4])
+        # cllim <- as.double(tempdata[5])
+        cllim <- as.double(indata[,5])
+        # culim <- as.double(tempdata[6])
+        culim <- as.double(indata[,6])
+        # ccharge <- as.double(tempdata[7])
+        ccharge <- as.double(indata[,7])
+        # cperc <- as.double(tempdata[8])
+        cperc <- as.double(indata[,8])
+        tlabel <- clabel
+        tmass <- cmass
+        llabel <- cllabel
+        ulabel <- culabel
+        llim <- cllim
+        ulim <- culim
+        tcharge <- ccharge
+        tperc <- cperc
+        # }
+
+
+        # Test for Fourier peaks - set peaks to F and useLabel=8
+        holdPeak <- 0
+        mtol <- 0.6
+        for (m in 1:ncorr) {
+            i <- Pidx1[ordcorr[m]]
+            k <- Pidx2[ordcorr[m]]
+            if (i > holdPeak) {
+                if (useLabel[i] < 2 & useLabel[k] < 2) {
+                    if (Gcount[i] == 0 |
+                        Gcount[k] == 0 |
+                        (Gcount[i] == Gcount[k])) {
+                        # Check whether mass differences are within mass diff range
+                        if (massdata[k] > massdata[i] + mtol) {
+                            holdPeak <- i
+                        }
+                        else {
+                            if (usecorr[ordcorr[m]] > 0.8) {
+                                iratio <- 100 * medval[k] / medval[i]  # peak 2 % of peak 1
+                                if (iratio > 1000) {
+                                    useLabel[i] <- 8
+                                    PeakLabel[i] <- "F"
+                                    PeakMatch[i] <- PeakName[k]
+                                    PeakIndex[i] <- k
+                                    MassMatch[i] <- massdata[k]
+                                    useLabel[k] <- 1
+                                    PeakLabel[k] <- "M"
+                                }
+                                if (iratio < 1) {
+                                    useLabel[i] <- 1
+                                    PeakLabel[i] <- "M"
+                                    PeakLabel[k] <- "F"
+                                    PeakMatch[k] <- PeakName[i]
+                                    PeakIndex[k] <- i
+                                    MassMatch[k] <- massdata[i]
+                                    useLabel[k] <- 8
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        # write.table(MassMatch, file="MassMatch_R.csv", sep = ",", col.names = FALSE, row.names = FALSE)
+
+        # check for isotopes
+        # set tol to acceptable standard dependent on small diffs between masdiffs
+        calcc <- as.double(0.0)
+        calcdiff <- as.double(0.0)
+        lnum <- 0
+        hnum <- 0
+        for (j in 1:nrow(indata)) {
+            holdPeak <- 0
+            if (tmass[j] < 0.26) {
+                mtol <- 0.00075
+            }
+            else {
+                mtol <- 0.0015
+            }
+            for (m in 1:ncorr) {
+                i <- Pidx1[ordcorr[m]]
+                k <- Pidx2[ordcorr[m]]
+                if (i > holdPeak) {
+                    if (useLabel[i] < 8 & useLabel[k] < 2) {
+                        if (Gcount[i] == 0 |
+                            Gcount[k] == 0 |
+                            (Gcount[i] == Gcount[k])) {
+                            if (massdata[k] > massdata[i] + tmass[j] + mtol) {
+                                holdPeak <- i
+                            }
+                            else {
+                                if ((massdata[k] - massdata[i] > tmass[j] - mtol) & usecorr[ordcorr[m]] > corrlim) {
+                                    iratio <- 100 * medval[k] / medval[i]  # peak 2 % of peak 1
+                                    if ((iratio / tperc[j]) > llim[j] & (iratio / tperc[j]) < ulim[j] * tcharge[j]) {
+                                        lnum <- i
+                                        hnum <- k
+                                        if (useLabel[lnum] == 0) {
+                                            PeakLabel[lnum] <- llabel[j]
+                                            if (tcharge[j] == 1) {
+                                                useLabel[lnum] <- 1
+                                            }
+                                            else {
+                                                useLabel[lnum] <- 7
+                                            }
+                                        }
+                                        useLabel[hnum] <- 7
+                                        PeakLabel[hnum] <- ulabel[j]
+                                        PeakMatch[hnum] <- PeakName[i]
+                                        PeakIndex[hnum] <- lnum
+                                        MassMatch[hnum] <- massdata[lnum]
+                                        PCharge[lnum] <- tcharge[j]
+                                        PCharge[hnum] <- tcharge[j]
+                                        ILabel[lnum] <- tlabel[j]
+                                        ILabel[hnum] <- tlabel[j]
+                                        Inum[lnum] <- iratio / tperc[j]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        write.table(MassMatch, file="MassMatch_R.csv", sep = ",", col.names = FALSE, row.names = FALSE)
+        write.table(Inum, file="Inum_R.csv", sep = ",", col.names = FALSE, row.names = FALSE)
+
+
+        # Simplified Dimer Code - H only
+        holdPeak <- 0
+        for (m in 1:ncorr) {
+            i <- Pidx1[ordcorr[m]]
+            k <- Pidx2[ordcorr[m]]
+            if (i > holdPeak) {
+                if (useLabel[i] < 2 && useLabel[k] < 2) {  # then A or M
+                    if (Gcount[i] == 0 |
+                        Gcount[k] == 0 |
+                        (Gcount[i] == Gcount[k])) {
+                        mtol <- (massdata[i] * 2 * tol) / 1000000
+                        if (mtol < masslim) {
+                            mtol <- masslim
+                        }
+                        newval <- massdata[i] - 1.00727 * etol
+                        newval <- (newval * 2) + 1.00727 * etol - mtol
+                        if (massdata[k] > newval + 2 * mtol) {
+                            holdPeak <- i
+                        }
+                        else {
+                            if ((massdata[k] - newval > 0) &
+                                (massdata[k] - newval < 2 * mtol) &
+                                usecorr[ordcorr[m]] > 0.94) {
+                                useLabel[i] <- 2
+                                PeakLabel[i] <- "M"
+                                PeakLabel[k] <- "D"
+                                useLabel[k] <- 2
+                                PeakMatch[k] <- PeakName[i]
+                                PeakIndex[k] <- i
+                                MassMatch[k] <- massdata[i]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        # Identify and annotate Adduct Peaks
+        # initialise adduct info and look for simple adducts and then combined adducts
+        cmode <- 0
+        Amode <- vector(mode = "integer", length = nrow(adddata))
+        ALabel <- vector(mode = "character", length = nrow(adddata))
+        iLabel <- vector(mode = "character", length = nrow(adddata))
+        Amass <- vector(mode = "double", length = nrow(adddata))
+        # for (i in 1:nrow(adddata)) {
+        # tempdata <- strsplit(adddata[i,], "\t")
+        # cmode <- as.integer(tempdata[1])
+        cmode <- as.integer(adddata[,1])
+        # calabel <- as.character(tempdata[2])
+        calabel <- as.character(adddata[,2])
+        # cilabel <- as.character(tempdata[3])
+        cilabel <- as.character(adddata[,3])
+        # camass <- as.double(tempdata[4])
+        camass <- as.double(adddata[,4])
+
+        for(i in 1:length(cmode)) {
+            if (cmode[i] == 3) {
+                cmode[i] <- 5
+            }
+            if (cmode[i] == 1 & etol > 0) {
+                if (calabel[i] == "NH3") {
+                    cmode[i] <- 3
+                }
+                if (calabel[i] == "HCOOH") {
+                    cmode[i] <- 4
+                }
+            }
+            Amode[i] <- cmode[i]
+        }
+
+        ALabel <- calabel
+        iLabel <- cilabel
+        Amass <- camass
+
+        write.table(Amode, file="Amode_R.csv", sep = ",", col.names = FALSE, row.names = FALSE)
+
+        tempLabel <- ""
+        for (j in 1:nrow(adddata)) {
+            holdPeak <- 0
+            for (m in 1:3) {
+                for (c in 1:ncorr) {
+                    i <- Pidx1[ordcorr[c]]
+                    k <- Pidx2[ordcorr[c]]
+                    mtol <- (massdata[i] * 2 * tol) / 1000000
+                    if (mtol < masslim) {
+                        mtol <- masslim
+                    }
+                    if (i > holdPeak & Amode[j] == m) {
+                        if (useLabel[i] < 4 & useLabel[k] < 3) {  # then A or M or M adduct
+                            if (Gcount[i] == 0 |
+                                Gcount[k] == 0 |
+                                useLabel[i] < 2 |
+                                useLabel[k] < 2 |
+                                (Gcount[i] == Gcount[k])) {
+                                if (massdata[k] > massdata[i] + Amass[j] + mtol) {
+                                    holdPeak <- i
+                                }
+                                else {
+                                    if ((massdata[k] - massdata[i] > Amass[j] - mtol) & usecorr[ordcorr[c]] > corrlim) {
+                                        lnum <- i
+                                        hnum <- k
+                                        tempLabel <- ALabel[j]
+                                        if (useLabel[lnum] < 2) {
+                                            useLabel[lnum] <- 2
+                                            PeakLabel[lnum] <- "M"
+                                        }
+                                        useLabel[hnum] <- 3
+                                        PeakLabel[hnum] <- paste0(PeakLabel[lnum], "_", tempLabel)
+                                        PeakMatch[hnum] <- PeakName[lnum]
+                                        PeakIndex[hnum] <- lnum
+                                        MassMatch[hnum] <- massdata[lnum]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        # Rest of code goes here
+    }
+
     print(paste0("Size of totCorrs: ", length(totCorrs)))
     print(paste0("Size of ncorr: ", ncorr))
     print("Size of ncorr is used to create size of finCorrs")
@@ -312,316 +655,37 @@ annotateMassmatch <- function() {
     print(paste0("Size of ordcorr: ", length(ordcorr)))
     print(paste0("totCorrs[1]: ", totCorrs[1]))
     print(paste0("totCorrs[37424]: ", totCorrs[37424]))
-    print(paste0("finCorrs[1]: ", finCorrs[1]))
+    print(paste0("finCorrs[2]: ", finCorrs[2]))
     print(paste0("ordcorr[37424]: ", ordcorr[37424]))
 
     # Output for performing testthat tests
-    return(rbind(elabel, lowval, limtol, rtlim, rtmin, rtmax, mycorrlim, etol, PeakLabel[3269], PeakLabel[3270], ordpname[3802], sortPeaks[3802], tdiff, MFdata[1], ncorr, length(totCorrs), totCorrs[1]))
+    return(rbind(elabel,
+    lowval,
+    limtol,
+    rtlim,
+    rtmin,
+    rtmax,
+    mycorrlim,
+    etol,
+    PeakLabel[3269],
+    PeakLabel[3270],
+    ordpname[3802],
+    sortPeaks[3802],
+    tdiff, MFdata[1],
+    ncorr,
+    length(totCorrs),
+    totCorrs[1],
+    length(finCorrs),
+    finCorrs[2],
+    ogno,
+    MassMatch[3802],
+    Inum[3801],
+    Amode[15]))
 
 }
 
 
-# if (sortedMF & rsortedRefMF) {
-#     # Create framework of correlated Peaks
-#     tnum <- 0
-#     hno <- 0
-#     tno <- 0
-#     # loop thru correlations
-#     for (j in 1 < ncorr) {
-#         if(j == 2) {
-#             break
-#         }
-#         print(paste0("ordcorr[j]: ", ordcorr[j]))
-#         if (usecorr[ordcorr[j]] > 0.94) {
-#             i <- Pidx1[ordcorr[j]]
-#             tnum <- Pidx2[ordcorr[j]]
-#             if (Gcount[i] == 0 & Gcount[tnum] == 0) {
-#                 gno <- gno + 1
-#                 Gcount[i] <- gno
-#                 Gcount[tnum] <- gno
-#             }
-#             if (Gcount[i] > 0 & Gcount[tnum] == 0) {
-#                 Gcount[tnum] <- Gcount[i]
-#             }
-#             if (Gcount[i] == 0 & Gcount[tnum] > 0) {
-#                 Gcount[i] <- Gcount[tnum]
-#             }
-#             if (Gcount[i] > 0 & Gcount[tnum] > 0) {
-#                 if (Gcount[i] != Gcount[tnum]) {
-#                     if (Gcount[i] > Gcount[tnum]) {
-#                         hno <- Gcount[i]
-#                         tno <- Gcount[tnum]
-#                     }
-#                     if (Gcount[i] < Gcount[tnum]) {
-#                         hno <- Gcount[tnum]
-#                         tno <- Gcount[i]
-#                     }
-#                     for (k in 1 < nrow(mydata)) {
-#                         if (Gcount[k] == hno) {
-#                             Gcount[k] <- tno
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
-#     stop("the script ends")
 
-
-#
-#     ogno <- as.integer(gno)
-#     for (i in 1 < nrow(mydata)) {
-#         Gorig[i] <- Gcount[i]
-#     }
-#
-#     cbind(listofdata, substr(mydata[1], 0, headLen - 1), "MetGroup", "PeakType", "Salt", "useLabel", "MatchedMF", "Adduct", "ppm", "Ionmode")
-#
-#     # Initialise for Fourier/Isotope Peaks handling
-#     holdval <- as.double(0.0)
-#     iratio <- as.double(0.0)
-#     tdiff <- as.double(0.0)
-#     tmass <- double[nrow(indata)]
-#     tlabel <- character(nrow(indata))
-#     llabel <- character(nrow(indata))
-#     ulabel <- character(nrow(indata))
-#     llim <- double(nrow(indata))
-#     ulim <- double(nrow(indata))
-#     tcharge <- double(nrow(indata))
-#     tperc <- double(nrow(indata))
-#     tempval <- 0
-#     # Initialise isotope info
-#     for (i in 1 < nrow(indata)) {
-#         tempdata <- strsplit(indata[i], "\t")
-#         clabel <- tempdata[1]
-#         cmass <- as.double(tempdata[2])
-#         cllabel <- as.character(tempdata[3])
-#         culabel <- as.character(tempdata[4])
-#         cllim <- as.double(tempdata[5])
-#         culim <- as.double(tempdata[6])
-#         ccharge <- as.double(tempdata[7])
-#         cperc <- as.double(tempdata[8])
-#         tlabel[i] <- clabel
-#         tmass[i] <- cmass
-#         llabel[i] <- cllabel
-#         ulabel[i] <- culabel
-#         llim[i] <- cllim
-#         ulim[i] <- culim
-#         tcharge[i] <- ccharge
-#         tperc[i] <- cperc
-#     }
-#
-#     # Test for Fourier peaks - set peaks to F and useLabel=8
-#     holdPeak <- 0
-#     mtol <- 0.6
-#     for (m in 1 < ncorr) {
-#         i <- Pidx1[ordcorr[m]]
-#         k <- Pidx2[ordcorr[m]]
-#         if (i > holdPeak) {
-#             if (useLabel[i] < 2 & useLabel[k] < 2) {
-#                 if (Gcount[i] == 0 |
-#                     Gcount[k] == 0 |
-#                     (Gcount[i] == Gcount[k])) {
-#                     # Check whether mass differences are within mass diff range
-#                     if (massdata[k] > massdata[i] + mtol) {
-#                         holdPeak <- i
-#                     }
-#                     else {
-#                         if (usecorr[ordcorr[m]] > 0.8) {
-#                             iratio <- 100 * medval[k] / medval[i]  # peak 2 % of peak 1
-#                             if (iratio > 1000) {
-#                                 useLabel[i] <- 8
-#                                 PeakLabel[i] <- "F"
-#                                 PeakMatch[i] <- PeakName[k]
-#                                 PeakIndex[i] <- k
-#                                 MassMatch[i] <- massdata[k]
-#                                 useLabel[k] <- 1
-#                                 PeakLabel[k] <- "M"
-#                             }
-#                             if (iratio < 1) {
-#                                 useLabel[i] <- 1
-#                                 PeakLabel[i] <- "M"
-#                                 PeakLabel[k] <- "F"
-#                                 PeakMatch[k] <- PeakName[i]
-#                                 PeakIndex[k] <- i
-#                                 MassMatch[k] <- massdata[i]
-#                                 useLabel[k] <- 8
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
-#
-#     # check for isotopes
-#     # set tol to acceptable standard dependent on small diffs between masdiffs
-#     calcc <- as.double(0.0)
-#     calcdiff <- as.double(0.0)
-#     lnum <- 0
-#     hnum <- 0
-#     for (j in 1 < nrow(indata)) {
-#         holdPeak <- 0
-#         if (tmass[j] < 0.26) {
-#             mtol <- 0.00075
-#         }
-#         else {
-#             mtol <- 0.0015
-#         }
-#         for (m in 1 < ncorr) {
-#             i <- Pidx1[ordcorr[m]]
-#             k <- Pidx2[ordcorr[m]]
-#             if (i > holdPeak) {
-#                 if (useLabel[i] < 8 & useLabel[k] < 2) {
-#                     if (Gcount[i] == 0 |
-#                         Gcount[k] == 0 |
-#                         (Gcount[i] == Gcount[k])) {
-#                         if (massdata[k] > massdata[i] + tmass[j] + mtol) {
-#                             holdPeak <- i
-#                         }
-#                         else {
-#                             if ((massdata[k] - massdata[i] > tmass[j] - mtol) & usecorr[ordcorr[m]] > corrlim) {
-#                                 iratio <- 100 * medval[k] / medval[i]  # peak 2 % of peak 1
-#                                 if ((iratio / tperc[j]) > llim[j] & (iratio / tperc[j]) < ulim[j] * tcharge[j]) {
-#                                     lnum <- i
-#                                     hnum <- k
-#                                     if (useLabel[lnum] == 0) {
-#                                         PeakLabel[lnum] <- llabel[j]
-#                                         if (tcharge[j] == 1) {
-#                                             useLabel[lnum] <- 1
-#                                         }
-#                                         else {
-#                                             useLabel[lnum] <- 7
-#                                         }
-#                                     }
-#                                     useLabel[hnum] <- 7
-#                                     PeakLabel[hnum] <- ulabel[j]
-#                                     PeakMatch[hnum] <- PeakName[i]
-#                                     PeakIndex[hnum] <- lnum
-#                                     MassMatch[hnum] <- massdata[lnum]
-#                                     PCharge[lnum] <- tcharge[j]
-#                                     PCharge[hnum] <- tcharge[j]
-#                                     ILabel[lnum] <- tlabel[j]
-#                                     ILabel[hnum] <- tlabel[j]
-#                                     Inum[lnum] <- iratio / tperc[j]
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
-#
-#     # Simplified Dimer Code - H only
-#     holdPeak <- 0
-#     for (m in 1 : ncorr) {
-#         i <- Pidx1[ordcorr[m]]
-#         k <- Pidx2[ordcorr[m]]
-#         if (i > holdPeak) {
-#             if (useLabel[i] < 2 && useLabel[k] < 2) {  # then A or M
-#                 if (Gcount[i] == 0 |
-#                     Gcount[k] == 0 |
-#                     (Gcount[i] == Gcount[k])) {
-#                     mtol <- (massdata[i] * 2 * tol) / 1000000
-#                     if (mtol < masslim) {
-#                         mtol <- masslim
-#                     }
-#                     newval <- massdata[i] - 1.00727 * etol
-#                     newval <- (newval * 2) + 1.00727 * etol - mtol
-#                     if (massdata[k] > newval + 2 * mtol) {
-#                         holdPeak <- i
-#                     }
-#                     else {
-#                         if ((massdata[k] - newval > 0) &
-#                             (massdata[k] - newval < 2 * mtol) &
-#                             usecorr[ordcorr[m]] > 0.94) {
-#                             useLabel[i] <- 2
-#                             PeakLabel[i] <- "M"
-#                             PeakLabel[k] <- "D"
-#                             useLabel[k] <- 2
-#                             PeakMatch[k] <- PeakName[i]
-#                             PeakIndex[k] <- i
-#                             MassMatch[k] <- massdata[i]
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
-#
-#     # Identify and annotate Adduct Peaks
-#     # initialise adduct info and look for simple adducts and then combined adducts
-#     cmode <- 0
-#     Amode <- integer[nrow(adddata)]
-#     ALabel <- character[nrow(adddata)]
-#     iLabel <- character[nrow(adddata)]
-#     Amass <- double[nrow(adddata)]
-#     for (i in 1 < nrow(adddata)) {
-#         tempdata <- strsplit(adddata[i,], "\t")
-#         cmode <- as.integer(tempdata[1])
-#         calabel <- as.character(tempdata[2])
-#         cilabel <- as.character(tempdata[3])
-#         camass <- as.double(tempdata[4])
-#         if (cmode == 3) {
-#             cmode <- 5
-#         }
-#         if (cmode == 1 & etol > 0) {
-#             if (calabel == "NH3") {
-#                 cmode <- 3
-#             }
-#             if (calabel == "HCOOH") {
-#                 cmode <- 4
-#             }
-#         }
-#         Amode[i] <- cmode
-#         ALabel[i] <- calabel
-#         iLabel[i] <- cilabel
-#         Amass[i] <- camass
-#     }
-#
-#     tempLabel <- ""
-#     for (j in 1 < nrow(adddata[1,])) {
-#         holdPeak <- 0
-#         for (m in 1 < m) {
-#             for (c in c < ncorr) {
-#                 i <- Pidx1[ordcorr[c]]
-#                 k <- Pidx2[ordcorr[c]]
-#                 mtol <- (massdata[i] * 2 * tol) / 1000000
-#                 if (mtol < masslim) {
-#                     mtol <- masslim
-#                 }
-#                 if (i > holdPeak & Amode[j] == m) {
-#                     if (useLabel[i] < 4 & useLabel[k] < 3) {  # then A or M or M adduct
-#                         if (Gcount[i] == 0 |
-#                             Gcount[k] == 0 |
-#                             useLabel[i] < 2 |
-#                             useLabel[k] < 2 |
-#                             (Gcount[i] == Gcount[k])) {
-#                             if (massdata[k] > massdata[i] + Amass[j] + mtol) {
-#                                 holdPeak <- i
-#                             }
-#                             else {
-#                                 if ((massdata[k] - massdata[i] > Amass[j] - mtol) & usecorr[ordcorr[c]] > corrlim) {
-#                                     lnum <- i
-#                                     hnum <- k
-#                                     tempLabel <- ALabel[j]
-#                                     if (useLabel[lnum] < 2) {
-#                                         useLabel[lnum] <- 2
-#                                         PeakLabel[lnum] <- "M"
-#                                     }
-#                                     useLabel[hnum] <- 3
-#                                     PeakLabel[hnum] <- paste0(PeakLabel[lnum], "_", tempLabel)
-#                                     PeakMatch[hnum] <- PeakName[lnum]
-#                                     PeakIndex[hnum] <- lnum
-#                                     MassMatch[hnum] <- massdata[lnum]
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
 #
 #     # Relook for special cases
 #     for (j in j < nrow(adddata[1,])) {
