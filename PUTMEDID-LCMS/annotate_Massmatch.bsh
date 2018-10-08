@@ -23,66 +23,49 @@ public static ArrayList readFileToString(String fileName) {
 
 // #############################################################################
 
-// Input files
-// Select Isotopes FileTav_Isotopes.txt
-
-// Sort out input data
+// Load input files
+// Isotopes FileTav_Isotopes.txt
 indata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Isotopes.txt");
-System.out.println("indata - nrow: " + indata.size());
-String indata_line = indata.get(0);
-System.out.println("indata - ncol: " + indata_line.split("\t").length);
-
-// #############################################################################
-
-//Select Adducts File Tav_Adducts.txt
-
-// Sort out input data
+// Adducts File Tav_Adducts.txt
 adddata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Adducts.txt");
-
-// #############################################################################
-
-//Select Reference Mass File trimMMD_sortAmass.txt
-
+// Reference Mass File trimMMD_sortAmass.txt
 refdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/trimMMD_sortAmass.txt");
-
-// #############################################################################
-
-//Select Mass File to Check Study_pospeaks.txt
-
-// Sort out input data
+// Mass File Study_pospeaks.txt
 mydata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pospeaks.txt");
-System.out.println("mydata - nrow: " + mydata.size());
-String mydata_line = mydata.get(0);
-System.out.println("mydata - ncol: " + mydata_line.split("\t").length);
-
-// #############################################################################
-
-//Select Correlations File Study_pos_CorrListP.txt
-
+// Correlations File Study_pos_CorrListP.txt
 corrdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pos_CorrListP.txt");
 
-// #############################################################################
-// Sort out parameters
+// Create file containing input file metrics
+BufferedWriter file_metrics = new BufferedWriter(new FileWriter("file_metrics.csv"));
+file_metrics.append("isotopedata_nrow," + indata.size() + "\n");
+String indata_line = indata.get(0);
+file_metrics.append("isotopedata_ncol," + indata_line.split("\t").length + "\n");
+file_metrics.append("adddata_nrow," + adddata.size() + "\n");
+String adddata_line = adddata.get(0);
+file_metrics.append("adddata_ncol," + indata_line.split("\t").length + "\n");
+file_metrics.append("refdata_nrow," + refdata.size() + "\n");
+String refdata_line = refdata.get(0);
+file_metrics.append("refdata_ncol," + refdata_line.split("\t").length + "\n");
+file_metrics.append("peakdata_ncol," + mydata.size() + "\n");
+String mydata_line = mydata.get(0);
+file_metrics.append("peakdata_nrow," + mydata_line.split("\t").length + "\n");
+file_metrics.append("corrdata_nrow," + corrdata.size() + "\n");
+String corrdata_line = corrdata.get(0);
+file_metrics.append("corrdata_ncol," + corrdata_line.split("\t").length + "\n");
+file_metrics.close();
 
-//Ion_mode
-elabel = "pos";
-//Mass tolerance
-lowval = "3";
-// min_massdiff
-limtol = "0.00075";
-// rtlim
-rtlim = "2.5";
-// rtmin
-rtmin = "30";
-// rtmax
-rtmax = "1200";
-// Corrlim
-mycorrlim = "0.9";
+// Parameters
+elabel = "pos";         // Ion_mode
+lowval = "3";           // Mass tolerance
+limtol = "0.00075";     // min_massdiff
+rtlim = "2.5";          // rtlim
+rtmin = "30";           // rtmin
+rtmax = "1200";         // rtmax
+mycorrlim = "0.9";      // Corrlim
 
 // Sorts <i>values</i> using the Shell sort algorithm. If sortAscending is true,
 // the values will be in order from smallest to largest. The returned array
 // contains the indices of <i>values</i> in the requested order.
-
 public static int[] ShellSortValues(int[]values, boolean sortAscending) {
     int len = values.length;
     int[] sortedVals = new int[len];
@@ -132,7 +115,7 @@ int[] sortPeaks=new int[mydata.size()];
 String [] WorkLabel= new String[mydata.size()];
 double[] massdata=new double[mydata.size()];
 double[] matchMF=new double[mydata.size()];
-double[] RTdata=new double[mydata.size()];
+double[] RTdata=new double[mydata.size()];  // mydata.size() incl colname header row!!
 double[] medval=new double[mydata.size()];
 int[] useLabel=new int[mydata.size()];
 Integer headLen;
@@ -192,9 +175,6 @@ double compMF=0;
 for (int i=1;i<mydata.size();i++) {
     String inStr=mydata.get(i);
     String [] tempdata = inStr.split("\t");
-
-//     System.out.println(tempdata[0]);
-
     int pval = Integer.parseInt(tempdata[0]);
     double massval = new Double(tempdata[1]).doubleValue();
     double tval = new Double(tempdata[2]).doubleValue();
@@ -229,16 +209,33 @@ for (int i=1;i<mydata.size();i++) {
     }
 }
 
+// Save PeakLabel for checking
+BufferedWriter writer = new BufferedWriter(new FileWriter("PeakLabel.csv"));
+for(int i = 1; i < PeakLabel.length; i++) {  // PeakLabel[0] is null as it corresponds to colnames so skip this
+    writer.write(PeakLabel[i] + "\n");
+}
+writer.close();
+
 headLen=mydata.get(0).length();
 int[] ordpname = ShellSortValues(PeakName, true);
+BufferedWriter writer = new BufferedWriter(new FileWriter("ordpname.csv"));
+for(int i = 1; i < ordpname.length; i++) {
+    writer.write(ordpname[i] + "\n");
+}
+writer.close();
+
 Arrays.sort(sortPeaks);
+BufferedWriter writer = new BufferedWriter(new FileWriter("sortPeaks.csv"));
+for(int i = 1; i < sortPeaks.length; i++) {
+    writer.write(sortPeaks[i] + "\n");
+}
+writer.close();
 
-// for(int i =0; i < sortPeaks.length; i++) {
-//     System.out.println("sortPeaks[" + i +"]: " + sortPeaks[i]);
-// }
-
-tmpdata.append("tdiff,rtlim,useLabel[oidx1],useLabel[oidx2],ncorr,oidx1,oidx2\n");
-
+BufferedWriter pval1_writer = new BufferedWriter(new FileWriter("pval1.csv"));
+BufferedWriter pval2_writer = new BufferedWriter(new FileWriter("pval2.csv"));
+BufferedWriter idx1_writer = new BufferedWriter(new FileWriter("idx1.csv"));
+BufferedWriter oidx1_writer = new BufferedWriter(new FileWriter("oidx1.csv"));
+BufferedWriter tdiff_writer = new BufferedWriter(new FileWriter("tdiff.csv"));
 
 int ccount=0;
 int oidx1=0;
@@ -251,25 +248,21 @@ for (int i=0;i<corrdata.size();i++) {
     String inStr=corrdata.get(i);
     String [] tempdata = inStr.split("\t");
     int pval1 = Integer.parseInt(tempdata[0]);
+    pval1_writer.write(pval1 + "\n");
     int pval2 = Integer.parseInt(tempdata[1]);
-//     System.out.println("pval1: " + pval1);
-//     System.out.println("pval2: " + pval2);
+    pval2_writer.write(pval2 + "\n");
     double tempcorr = new Double(tempdata[2]).doubleValue();
     idx1=Arrays.binarySearch(sortPeaks,pval1);
+    idx1_writer.write(idx1 + "\n");
     idx2=Arrays.binarySearch(sortPeaks,pval2);
-//     System.out.println("idx1: " + idx1);
-//     System.out.println("idx2: " + idx2);
     oidx1=ordpname[idx1];
+    oidx1_writer.write(oidx1 + "\n");
     oidx2=ordpname[idx2];
-//     System.out.println("oidx1: " + oidx1);
-//     System.out.println("oidx2: " + oidx2);
     tdiff=RTdata[oidx1]-RTdata[oidx2];
-//     System.out.println("RTdata[oidx1]: " + RTdata[oidx1]);
-//     System.out.println("RTdata[oidx2]: " + RTdata[oidx2]);
     if (tdiff<0) {
         tdiff=-tdiff;
     }
-//     System.out.println("tdiff: " + tdiff);
+    tdiff_writer.write(tdiff + "\n");
     if (tdiff<rtlim && useLabel[oidx1]<9 && useLabel[oidx2]<9) {
         tmpdata.append(tdiff + "," + rtlim + "," + useLabel[oidx1] + "," + useLabel[oidx2] + "," + ncorr + "," + oidx1 + "," + oidx2 + "\n");
         Pidx1[ncorr]=oidx1;
@@ -279,13 +272,28 @@ for (int i=0;i<corrdata.size();i++) {
             Pidx1[ncorr]=oidx2;
             Pidx2[ncorr]=oidx1;
         }
-//         System.out.println("Pidx1[ncorr]: " + Pidx1[ncorr]);
-//         System.out.println("Pidx2[ncorr]: " + Pidx2[ncorr]);
         totCorrs[ncorr]=((Pidx1[ncorr]*50000)+Pidx2[ncorr]);
-//         System.out.println("totCorrs[ncorr]: " + totCorrs[ncorr]);
         ncorr=ncorr+1;
     }
 }
+
+pval1_writer.close();
+pval2_writer.close();
+idx1_writer.close();
+oidx1_writer.close();
+tdiff_writer.close();
+
+// BufferedWriter writer = new BufferedWriter(new FileWriter("Pidx1.csv"));
+// for(int i = 1; i < Pidx1.length; i++) {
+//     writer.write(Pidx1[i] + "\n");
+// }
+// writer.close();
+//
+// BufferedWriter writer = new BufferedWriter(new FileWriter("totCorrs.csv"));
+// for(int i = 0; i < totCorrs.length; i++) {
+//     writer.write(totCorrs[i] + "\n");
+// }
+// writer.close();
 
 // BufferedWriter writer = new BufferedWriter(new FileWriter("check.csv"));
 // writer.write(tmpdata.toString());
@@ -295,7 +303,18 @@ int[] finCorrs=new int[ncorr];
 for (int i=0;i<ncorr;i++) {
     finCorrs[i]=totCorrs[i];
 }
+// BufferedWriter writer = new BufferedWriter(new FileWriter("finCorrs.csv"));
+// for(int i = 0; i < finCorrs.length; i++) {
+//     writer.write(finCorrs[i] + "\n");
+// }
+// writer.close();
+
 int[] ordcorr = ShellSortValues(finCorrs, true);
+// BufferedWriter writer = new BufferedWriter(new FileWriter("ordcorr.csv"));
+// for(int i = 0; i < ordcorr.length; i++) {
+//     writer.write(ordcorr[i] + "\n");
+// }
+// writer.close();
 
 System.out.println("Size of totCorrs: " + totCorrs.length);
 System.out.println("Size of finCorrs: " + finCorrs.length);
@@ -306,12 +325,6 @@ System.out.println("totCorrs[37423]: " + totCorrs[37423]);
 System.out.println("finCorrs[1]:" + finCorrs[1]);
 
 System.out.println("ordcorr[23887]: " + ordcorr[23887]);
-
-BufferedWriter writer = new BufferedWriter(new FileWriter("tmp.txt"));
-for(int i =0; i < totCorrs.length; i++) {
-    writer.write(String.valueOf(totCorrs[i]) + "\n");
-}
-writer.close();
 
 
 // read sorted MF Reference data into an Array for fast search
@@ -330,14 +343,6 @@ for (int i=1;i<refdata.size();i++) {
     }
     rcompMF=tval;
 }
-
-// for(int i=0; i<ordcorr.length;i++){
-//     if(i==20)
-//         break;
-//     System.out.println("ordcorr[i]: " + ordcorr[i]);
-//     System.out.println("finCorrs[i]: " + finCorrs[i]);
-//     System.out.println("usecorr[ordcorr[i]]: " + usecorr[ordcorr[i]]);
-// }
 
 System.out.println("Gcount size: " + Gcount.length);
 if (sortedMF && rsortedRefMF) {
@@ -385,12 +390,12 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
-    BufferedWriter writer = new BufferedWriter(new FileWriter("Gcount.csv"));
-    for(int i = 0; i < Gcount.length; i++) {
-        writer.write(Gcount[i].toString());
-        writer.write("\n");
-    }
-    writer.close();
+//     BufferedWriter writer = new BufferedWriter(new FileWriter("Gcount.csv"));
+//     for(int i = 0; i < Gcount.length; i++) {
+//         writer.write(Gcount[i].toString());
+//         writer.write("\n");
+//     }
+//     writer.close();
 
     Integer ogno=gno;
     System.out.println("ogno: " + ogno);
@@ -475,12 +480,6 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
-
-//     for(int i=0; i<MassMatch.length;i++){
-// //         if(i==20)
-// //             break;
-//         System.out.println("MassMatch[i]: " + MassMatch[i]);
-//     }
 
     BufferedWriter writer = new BufferedWriter(new FileWriter("MassMatch.csv"));
     for(int i = 0; i < MassMatch.length; i++) {
@@ -672,6 +671,13 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
+    BufferedWriter writer = new BufferedWriter(new FileWriter("useLabel.csv"));
+    for(int i = 0; i < useLabel.length; i++) {
+        writer.write(useLabel[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
     // relook for special cases
     for (int j=1;j<adddata.size();j++) {
         if (Amode[j]>2) {
@@ -737,6 +743,12 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
+//     BufferedWriter writer = new BufferedWriter(new FileWriter("PeakLabel.csv"));
+//     for(int i = 1; i < PeakLabel.length; i++) {
+//         writer.write(PeakLabel[i].toString());
+//         writer.write("\n");
+//     }
+//     writer.close();
 
     // RETRY with greater tolerance for isotopes for unmatched features
     for (int j=1;j<indata.size();j++) {
@@ -791,6 +803,12 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("PCharge.csv"));
+    for(int i = 1; i < PCharge.length; i++) {
+        writer.write(PCharge[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
 
     // write out annotated group info into existing groups
     tnum=0;
@@ -830,6 +848,12 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("WorkLabel.csv"));
+    for(int i = 1; i < WorkLabel.length; i++) {
+        writer.write(WorkLabel[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
 
     // SubGroup related Peaks
     tnum=0;
@@ -869,6 +893,12 @@ if (sortedMF && rsortedRefMF) {
             }
         }
     }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("SGcount.csv"));
+    for(int i = 1; i < SGcount.length; i++) {
+        writer.write(SGcount[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
 
     // annotate Cl info
     for (int k=1;k<mydata.size();k++) {
@@ -1064,13 +1094,23 @@ if (sortedMF && rsortedRefMF) {
         }
     }
 
+    BufferedWriter writer = new BufferedWriter(new FileWriter("massdata.csv"));
+    for(int i = 1; i < massdata.length; i++) {
+        writer.write(massdata[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
     // write SaltType into SaltLabel for peak and set useLabel to 5
     mtol=0.0015;
     for (int j=0;j<scount;j++) {
         newval=SaltMass[j]-mtol;
+//         System.out.println("SaltMass[j]: " + SaltMass[j]);
+//         System.out.println("newval: " + newval);
         idx1=0;
         idx2=0;
         idx1=Arrays.binarySearch(massdata,newval);
+//         System.out.println("idx1: " + idx1);
         idx2=-idx1;
         if (idx2>1) {
             for (int k=idx2-1;k<mydata.size();k++) {
