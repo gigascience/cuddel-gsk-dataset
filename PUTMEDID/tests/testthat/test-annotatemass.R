@@ -64,4 +64,10 @@ test_that("running annotateMass has correct parameters", {
     expect_match(Inum_3801, "19.4998498891375")  # Inum_3801
     Amode_15 <- results[23,]
     expect_match(Amode_15, "5")  # Amode_15
+    uselabel_3802 <- results[24,]
+    expect_match(uselabel_3802, "7")  # uselabel_3802
+    peaklabel_3802 <- results[25,]
+    expect_match(peaklabel_3802, "I")  # peaklabel_3802
+    peakcharge_3787 <- results[26,]
+    expect_match(peakcharge_3787, "1")  # peakcharge_3787
 })
