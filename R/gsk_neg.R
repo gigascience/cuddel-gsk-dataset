@@ -21,7 +21,7 @@ source("functions.R")
 datadir = "/home/peter/"
 # File path for negative files
 neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep="")
-# Output path
+# Output directory
 output_path <- paste(neg_dir, "/output", sep="")
 
 
@@ -36,7 +36,7 @@ meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
 meta_all <- meta_all[naturalorder(meta_all$file_name_neg), ]
 
 # Get list of negative file paths
-neg_file_paths <- getAllNegGSKFilePaths(mode="negative")
+neg_file_paths <- getAllGSKFilePaths(mode="negative")
 
 # Get list of negative files
 neg_files <- meta_all[,"file_name_neg"]
@@ -267,10 +267,10 @@ rsd_qc_neg_peaklist <- knn_neg_qc_peaklist
 
 # Calculate RSD
 rowRSD <- apply(rsd_qc_neg_peaklist, 1, function(data) {
-  sd <- sd(data)
-  mean <- mean(data)
-  rsd <- (sd/mean) * 100
-  return(rsd)
+    sd <- sd(data)
+    mean <- mean(data)
+    rsd <- (sd/mean) * 100
+    return(rsd)
 })
 
 # Find out which rows are over 20% RSD and remove them
@@ -313,7 +313,7 @@ ggsave(paste(output_path, "/rsd_neg_qc_pca.png", sep=""))
 pretreated_qc_idx <- rownames(rsd_qc_neg_peaklist)
 # Get plasma peaklist from neg_peaklist based on pretreated QC indices
 filtered_neg_peaklist <- neg_peaklist[rownames(neg_peaklist) %in% pretreated_qc_idx, ]
-neg_plasma_sample_names <- getNegativePlasmaSampleNames(mode="negative")
+neg_plasma_sample_names <- getPlasmaSampleNames(mode="negative")
 filtered_plasma_peaklist <- filtered_neg_peaklist[, colnames(filtered_neg_peaklist) %in% neg_plasma_sample_names]
 # Combine QC and plasma samples from negative peaklist
 filtered_qc_plasma_peaklist <- cbind(rsd_qc_neg_peaklist, filtered_plasma_peaklist)
@@ -448,6 +448,7 @@ head(signal_corr_data[, 1:4])
 ## 47   47    37436017.503675   36930624.0750681   37326859.8432458
 ## 51   51         47954.2056   43746.2516363636   53033.2722418605
 
+
 # # Add colname for first column
 # col_names <- c("name", colnames(signal_corr_data)[-1])
 # colnames(signal_corr_data) <- col_names
@@ -487,6 +488,7 @@ rawPeaks(para) <- read.delim(pfile, check.names = FALSE)
 sampleListFile(para) <- sfile
 para <- reSetPeaksData(para)
 # para <- missingValueImpute(para)
+
 para <- doQCRLSC(para, cpu=detectCores())
 plotQCRLSC(para$metaXpara)
 
@@ -571,21 +573,20 @@ autoplot(
 ggsave(paste(output_path, "/norm_neg_qc_sample_pca3.png", sep=""))
 
 
-##########################################################
-# Normalise plasma data to QCs by division of the median #
-# feature intensity responses measured for QC samples    #
-# with the intensity response of each feature for a      #
-# plasma sample                                          #
-##########################################################
+############################################################################
+# Normalise plasma data to QCs by division of the median feature intensity #
+# responses measured for QC samples with the intensity response of each    #
+# feature for a plasma sample                                              #
+############################################################################
 
 # Get all negative QC sample names
-neg_qc_names <- getNegativeQCSampleNames(mode="negative")
+neg_qc_names <- getQCSampleNames(mode="negative")
 # Get negative QC data
 neg_norm_qc_data <- norm_neg_peaklist[, neg_qc_names]
 # Calculate median peak intensity
 neg_qc_medians <- apply(neg_norm_qc_data, 1, median, na.rm=TRUE)
 # Get all negative plasma sample names
-neg_plasma_names <- getNegativePlasmaSampleNames(mode="negative")
+neg_plasma_names <- getPlasmaSampleNames(mode="negative")
 # Get negative QC data
 neg_norm_plasma_peaklist <- norm_neg_peaklist[, neg_plasma_names]
 # Divide all plasma peak intensity values with the relevant median QC peak intensity
@@ -620,11 +621,11 @@ autoplot(
 ggsave(paste(output_path, "/QC_median_norm_neg_QC_plasma_pca.png", sep=""))
 
 
-###############################################################################
-# Normalise data to time point 0 to partially compensate for metabolic        #
-# differences among the volunteers and to identify the changes in metabolome  #
-# that are relative to the baseline                                           #
-###############################################################################
+##############################################################################
+# Normalise data to time point 0 to partially compensate for metabolic       #
+# differences among the volunteers and to identify the changes in metabolome #
+# that are relative to the baseline                                          #
+##############################################################################
 
 # Get all TP 0 data
 tp0_neg_plasma_names <- getTP0PlasmaSampleNames(mode="negative")
@@ -633,6 +634,9 @@ tp0_neg_plasma_peaklist <- norm_neg_peaklist[, tp0_neg_plasma_names]
 tp0_means <- rowMeans(tp0_neg_plasma_peaklist)
 # Divide all data with tp0 means
 tp0_norm_plasma_peaklist <- median_norm_neg_plasma_peaklist/tp0_means
+
+# Download data as CSV file for combining with negative data
+write.table(tp0_norm_plasma_peaklist, file="neg_tp0_norm_plasma_peaklist.csv", sep=",", row.names = TRUE, col.names = TRUE)
 
 
 #####################################

@@ -640,6 +640,9 @@ tp0_means <- rowMeans(tp0_pos_plasma_peaklist)
 # Divide all data with tp0 means
 tp0_norm_plasma_peaklist <- median_norm_pos_plasma_peaklist/tp0_means
 
+# Download data as CSV file for combining with negative data
+write.table(tp0_norm_plasma_peaklist, file="pos_tp0_norm_plasma_peaklist.csv", sep=",", row.names = TRUE, col.names = TRUE)
+
 
 #####################################
 # Do PCA to check TP0 normalisation #
