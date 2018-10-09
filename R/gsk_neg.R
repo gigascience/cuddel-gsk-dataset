@@ -636,7 +636,11 @@ tp0_means <- rowMeans(tp0_neg_plasma_peaklist)
 tp0_norm_plasma_peaklist <- median_norm_neg_plasma_peaklist/tp0_means
 
 # Download data as CSV file for combining with negative data
-write.table(tp0_norm_plasma_peaklist, file="neg_tp0_norm_plasma_peaklist.csv", sep=",", row.names = TRUE, col.names = TRUE)
+write.table(tp0_norm_plasma_peaklist,
+    file=paste0(output_path, "/neg_tp0_norm_plasma_peaklist.csv"),
+    sep=",",
+    row.names = TRUE,
+    col.names = TRUE)
 
 
 #####################################
