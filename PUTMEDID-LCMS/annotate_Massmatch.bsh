@@ -1,0 +1,1464 @@
+// annotate_massMatch
+// Combined Function to annotate deconvoluted data (mydata) and match against
+// refdata
+// refdata is sorted by unique Amass
+// iso/adduct/loss info (indata, adddata) in Isotope/Adducts.txt files
+// Study data (mydata) - Index, Amass, RT, Median Peak Area
+// Study correlation data (corrdata) – Pidx1, Pidx2, correlation
+
+// #############################################################################
+
+import java.io.FileReader;
+
+public static ArrayList readFileToString(String fileName) {
+    BufferedReader reader = new BufferedReader(new FileReader(fileName));
+    lines = new ArrayList();
+    String line;
+    while((line = reader.readLine()) != null) {
+        lines.add(line);
+    }
+    reader.close();
+    return lines;
+}
+
+// #############################################################################
+
+// Load input files
+// Isotopes FileTav_Isotopes.txt
+indata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Isotopes.txt");
+// Adducts File Tav_Adducts.txt
+adddata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Tav_Adducts.txt");
+// Reference Mass File trimMMD_sortAmass.txt
+refdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/trimMMD_sortAmass.txt");
+// Mass File Study_pospeaks.txt
+mydata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pospeaks.txt");
+// Correlations File Study_pos_CorrListP.txt
+corrdata = readFileToString("/Users/peterli/PUTMEDID_LCMS_v1.01/Study_pos_CorrListP.txt");
+
+// Create file containing input file metrics
+BufferedWriter file_metrics = new BufferedWriter(new FileWriter("file_metrics.csv"));
+file_metrics.append("isotopedata_nrow," + indata.size() + "\n");
+String indata_line = indata.get(0);
+file_metrics.append("isotopedata_ncol," + indata_line.split("\t").length + "\n");
+file_metrics.append("adddata_nrow," + adddata.size() + "\n");
+String adddata_line = adddata.get(0);
+file_metrics.append("adddata_ncol," + indata_line.split("\t").length + "\n");
+file_metrics.append("refdata_nrow," + refdata.size() + "\n");
+String refdata_line = refdata.get(0);
+file_metrics.append("refdata_ncol," + refdata_line.split("\t").length + "\n");
+file_metrics.append("peakdata_ncol," + mydata.size() + "\n");
+String mydata_line = mydata.get(0);
+file_metrics.append("peakdata_nrow," + mydata_line.split("\t").length + "\n");
+file_metrics.append("corrdata_nrow," + corrdata.size() + "\n");
+String corrdata_line = corrdata.get(0);
+file_metrics.append("corrdata_ncol," + corrdata_line.split("\t").length + "\n");
+file_metrics.close();
+
+// Parameters
+elabel = "pos";         // Ion_mode
+lowval = "3";           // Mass tolerance
+limtol = "0.00075";     // min_massdiff
+rtlim = "2.5";          // rtlim
+rtmin = "30";           // rtmin
+rtmax = "1200";         // rtmax
+mycorrlim = "0.9";      // Corrlim
+
+// Sorts <i>values</i> using the Shell sort algorithm. If sortAscending is true,
+// the values will be in order from smallest to largest. The returned array
+// contains the indices of <i>values</i> in the requested order.
+public static int[] ShellSortValues(int[]values, boolean sortAscending) {
+    int len = values.length;
+    int[] sortedVals = new int[len];
+    int[] originalIndices = new int[len];
+    for(int i=0;i<len;i++) {
+        originalIndices[i] = i;
+        sortedVals[i] = values[i];
+    }
+    int h = 1;
+    //find the largest h value possible
+    while ((h * 3 + 1) < len)
+    {
+        h = 3 * h + 1;
+    }
+
+    while( h > 0 )
+    {
+        //for each set of elements (there are h sets)
+        for (int i = h - 1; i < len; i++)
+        {
+            //pick the last element in the set
+            int val = sortedVals[i];
+            int index = originalIndices[i];
+            int j = i;
+             /*compare value to the one before it in the set
+               if they are out of order continue this loop, moving
+               elements "back" to make room for ind to be inserted.*/
+            for( j = i; (j >= h) && ((!sortAscending && sortedVals[j-h] < val) || (sortAscending && sortedVals[j-h] > val)); j -= h)
+            {
+                sortedVals[j] = sortedVals[j-h];
+                originalIndices[j] = originalIndices[j-h];
+            }
+            //insert val into the correct place
+            sortedVals[j] = val;
+            originalIndices[j] = index;
+        }
+        //all sets h-sorted, now decrease set size
+        h = h / 3;
+    }
+    return originalIndices;
+}
+
+
+// Input
+int[] PeakName=new int[mydata.size()];
+int[] sortPeaks=new int[mydata.size()];
+String [] WorkLabel= new String[mydata.size()];
+double[] massdata=new double[mydata.size()];
+double[] matchMF=new double[mydata.size()];
+double[] RTdata=new double[mydata.size()];  // mydata.size() incl colname header row!!
+double[] medval=new double[mydata.size()];
+int[] useLabel=new int[mydata.size()];
+Integer headLen;
+Integer rheadLen;
+double rtlim=new Double(rtlim).doubleValue();
+double rtmin=new Double(rtmin).doubleValue();
+double rtmax=new Double(rtmax).doubleValue();
+double tol=new Double(lowval).doubleValue(); // use tol*2 for adduct/mass diffs
+double masslim=new Double(limtol).doubleValue();
+double corrlim=new Double(mycorrlim).doubleValue();
+double[] MFdata=new double[refdata.size()];
+String [] MFformula= new String[refdata.size()];
+String ppmStr;
+int nsym;
+double kcount=0;
+int tcount=0;
+
+boolean sortedMF=true;
+boolean rsortedRefMF=true;
+String tempStr1="";
+String tempStr3="";
+
+// useLabel is 0 for A, 1 for I, F, .... 9 for E (invalid RT)
+double etol=1; // for positive ion mode
+if (elabel.substring(0,1).equals("n") || elabel.substring(0,1).equals("N")) {
+    etol=-1;
+}
+
+// Outputs
+StringBuffer tmpdata = new StringBuffer();
+
+StringBuffer listofdata = new StringBuffer(); // annotated data
+StringBuffer listofcorrs = new StringBuffer();
+StringBuffer listofsortcorrs = new StringBuffer();
+Integer gno=0;
+Integer regroup=0;
+int[] PeakMatch=new int[mydata.size()];
+int[] PeakIndex=new int[mydata.size()];
+int[] Gcount=new int[mydata.size()];
+int[] SGcount=new int[mydata.size()];
+int[] Gorig=new int[mydata.size()];
+double[] PCharge=new double[mydata.size()];
+double[] Inum=new double[mydata.size()];
+double[] MassMatch=new double[mydata.size()];
+String[] PeakLabel=new String[mydata.size()];
+String[] SaltLabel=new String[mydata.size()];
+String[] ILabel=new String[mydata.size()];
+int[] Pidx1=new int[corrdata.size()];
+int[] Pidx2=new int[corrdata.size()];
+int[] totCorrs=new int[corrdata.size()];
+double[] usecorr=new double[corrdata.size()];
+Integer idx1;
+Integer idx2;
+
+// Initialise - read sorted mass and RT data into an Array for fast search
+double compMF=0;
+for (int i=1;i<mydata.size();i++) {
+    String inStr=mydata.get(i);
+    String [] tempdata = inStr.split("\t");
+    int pval = Integer.parseInt(tempdata[0]);
+    double massval = new Double(tempdata[1]).doubleValue();
+    double tval = new Double(tempdata[2]).doubleValue();
+    double respval = new Double(tempdata[3]).doubleValue();
+    PeakName[i]=pval;
+    sortPeaks[i]=PeakName[i];
+    massdata[i]=massval;
+    MassMatch[i]=massval;
+    matchMF[i]=0;
+    if (massval<compMF) {
+        sortedMF=false;
+        tempStr1="Check file is not sorted by Accurate Mass";
+    }
+    compMF=massval;
+    RTdata[i]=tval;
+    medval[i]=respval;
+    PeakMatch[i]=pval; // default - initialise Peak to itself before matching
+    PeakIndex[i]=i;
+    Gcount[i]=0;
+    Gorig[i]=0;
+    SGcount[i]=0;
+    PCharge[i]=1;
+    Inum[i]=0;
+    PeakLabel[i]="A"; // default - initialise all Peaks to A - any/all
+    WorkLabel[i]="A";
+    SaltLabel[i]="";
+    ILabel[i]="N";
+    useLabel[i]=0;
+    if (RTdata[i]<rtmin || RTdata[i]>rtmax){
+        useLabel[i]=9;
+        PeakLabel[i]="E";
+    }
+}
+
+// Save PeakLabel for checking
+BufferedWriter writer = new BufferedWriter(new FileWriter("PeakLabel.csv"));
+for(int i = 1; i < PeakLabel.length; i++) {  // PeakLabel[0] is null as it corresponds to colnames so skip this
+    writer.write(PeakLabel[i] + "\n");
+}
+writer.close();
+
+headLen=mydata.get(0).length();
+int[] ordpname = ShellSortValues(PeakName, true);
+BufferedWriter writer = new BufferedWriter(new FileWriter("ordpname.csv"));
+for(int i = 1; i < ordpname.length; i++) {
+    writer.write(ordpname[i] + "\n");
+}
+writer.close();
+
+Arrays.sort(sortPeaks);
+BufferedWriter writer = new BufferedWriter(new FileWriter("sortPeaks.csv"));
+for(int i = 1; i < sortPeaks.length; i++) {
+    writer.write(sortPeaks[i] + "\n");
+}
+writer.close();
+
+BufferedWriter pval1_writer = new BufferedWriter(new FileWriter("pval1.csv"));
+BufferedWriter pval2_writer = new BufferedWriter(new FileWriter("pval2.csv"));
+BufferedWriter idx1_writer = new BufferedWriter(new FileWriter("idx1.csv"));
+BufferedWriter oidx1_writer = new BufferedWriter(new FileWriter("oidx1.csv"));
+BufferedWriter tdiff_writer = new BufferedWriter(new FileWriter("tdiff.csv"));
+
+int ccount=0;
+int oidx1=0;
+int oidx2=0;
+compMF=0;
+int ncorr=0;
+for (int i=0;i<corrdata.size();i++) {
+//     if(i == 5)
+//         break;
+    String inStr=corrdata.get(i);
+    String [] tempdata = inStr.split("\t");
+    int pval1 = Integer.parseInt(tempdata[0]);
+    pval1_writer.write(pval1 + "\n");
+    int pval2 = Integer.parseInt(tempdata[1]);
+    pval2_writer.write(pval2 + "\n");
+    double tempcorr = new Double(tempdata[2]).doubleValue();
+    idx1=Arrays.binarySearch(sortPeaks,pval1);
+    idx1_writer.write(idx1 + "\n");
+    idx2=Arrays.binarySearch(sortPeaks,pval2);
+    oidx1=ordpname[idx1];
+    oidx1_writer.write(oidx1 + "\n");
+    oidx2=ordpname[idx2];
+    tdiff=RTdata[oidx1]-RTdata[oidx2];
+    if (tdiff<0) {
+        tdiff=-tdiff;
+    }
+    tdiff_writer.write(tdiff + "\n");
+    if (tdiff<rtlim && useLabel[oidx1]<9 && useLabel[oidx2]<9) {
+        tmpdata.append(tdiff + "," + rtlim + "," + useLabel[oidx1] + "," + useLabel[oidx2] + "," + ncorr + "," + oidx1 + "," + oidx2 + "\n");
+        Pidx1[ncorr]=oidx1;
+        Pidx2[ncorr]=oidx2;
+        usecorr[ncorr]=tempcorr;
+        if (oidx1>oidx2) {
+            Pidx1[ncorr]=oidx2;
+            Pidx2[ncorr]=oidx1;
+        }
+        totCorrs[ncorr]=((Pidx1[ncorr]*50000)+Pidx2[ncorr]);
+        ncorr=ncorr+1;
+    }
+}
+
+pval1_writer.close();
+pval2_writer.close();
+idx1_writer.close();
+oidx1_writer.close();
+tdiff_writer.close();
+
+// BufferedWriter writer = new BufferedWriter(new FileWriter("Pidx1.csv"));
+// for(int i = 1; i < Pidx1.length; i++) {
+//     writer.write(Pidx1[i] + "\n");
+// }
+// writer.close();
+//
+// BufferedWriter writer = new BufferedWriter(new FileWriter("totCorrs.csv"));
+// for(int i = 0; i < totCorrs.length; i++) {
+//     writer.write(totCorrs[i] + "\n");
+// }
+// writer.close();
+
+// BufferedWriter writer = new BufferedWriter(new FileWriter("check.csv"));
+// writer.write(tmpdata.toString());
+// writer.close();
+
+int[] finCorrs=new int[ncorr];
+for (int i=0;i<ncorr;i++) {
+    finCorrs[i]=totCorrs[i];
+}
+// BufferedWriter writer = new BufferedWriter(new FileWriter("finCorrs.csv"));
+// for(int i = 0; i < finCorrs.length; i++) {
+//     writer.write(finCorrs[i] + "\n");
+// }
+// writer.close();
+
+int[] ordcorr = ShellSortValues(finCorrs, true);
+// BufferedWriter writer = new BufferedWriter(new FileWriter("ordcorr.csv"));
+// for(int i = 0; i < ordcorr.length; i++) {
+//     writer.write(ordcorr[i] + "\n");
+// }
+// writer.close();
+
+System.out.println("Size of totCorrs: " + totCorrs.length);
+System.out.println("Size of finCorrs: " + finCorrs.length);
+System.out.println("Size of ordcorr: " + ordcorr.length);
+System.out.println("totCorrs[0]: " + totCorrs[0]);
+System.out.println("ncorr: " + ncorr);
+System.out.println("totCorrs[37423]: " + totCorrs[37423]);
+System.out.println("finCorrs[1]:" + finCorrs[1]);
+
+System.out.println("ordcorr[23887]: " + ordcorr[23887]);
+
+
+// read sorted MF Reference data into an Array for fast search
+double rcompMF=0;
+for (int i=1;i<refdata.size();i++) {
+    tcount=tcount+1;
+    rheadLen=refdata.get(i).length();
+    inStr=refdata.get(i).substring(0,rheadLen-1);
+    String [] tempdata = inStr.split("\t");
+    double tval = new Double(tempdata[0]).doubleValue();
+    MFdata[i]=tval;
+    MFformula[i]=tempdata[1];
+    if (tval<rcompMF) {
+        tempStr3="Reference file data needs to be sorted by Accurate Mass";
+        rsortedRefMF=false;
+    }
+    rcompMF=tval;
+}
+
+System.out.println("Gcount size: " + Gcount.length);
+if (sortedMF && rsortedRefMF) {
+    // create framework of correlated Peaks
+    Integer tnum=0;
+    Integer hno=0;
+    Integer tno=0;
+    for (int j=0;j<ncorr;j++) {
+//         if(j == 60)
+//             break;
+//         System.out.println("ordcorr[j]: " + ordcorr[j]);
+//         System.out.println("usecorr[ordcorr[j]]: " + usecorr[ordcorr[j]]);
+        if (usecorr[ordcorr[j]]>0.94) {
+            i=Pidx1[ordcorr[j]];
+//             System.out.println("i: " + i);
+            tnum=Pidx2[ordcorr[j]];
+            if (Gcount[i]==0 && Gcount[tnum]==0) {
+                gno=gno+1;
+                Gcount[i]=gno;
+                Gcount[tnum]=gno;
+            }
+            if (Gcount[i]>0 && Gcount[tnum]==0) {
+                Gcount[tnum]=Gcount[i];
+            }
+            if (Gcount[i]==0 && Gcount[tnum]>0) {
+                Gcount[i]=Gcount[tnum];
+            }
+            if (Gcount[i]>0 && Gcount[tnum]>0) {
+                if (Gcount[i] != Gcount[tnum]) {
+                    if (Gcount[i]>Gcount[tnum]) {
+                        hno=Gcount[i];
+                        tno=Gcount[tnum];
+                    }
+                    if (Gcount[i]<Gcount[tnum]) {
+                        hno=Gcount[tnum];
+                        tno=Gcount[i];
+                    }
+                    for (int k=1;k<mydata.size();k++) {
+                        if (Gcount[k]==hno) {
+                            Gcount[k]=tno;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+//     BufferedWriter writer = new BufferedWriter(new FileWriter("Gcount.csv"));
+//     for(int i = 0; i < Gcount.length; i++) {
+//         writer.write(Gcount[i].toString());
+//         writer.write("\n");
+//     }
+//     writer.close();
+
+    Integer ogno=gno;
+    System.out.println("ogno: " + ogno);
+    for (int i=1;i<mydata.size();i++) {
+        Gorig[i]=Gcount[i];
+    }
+
+    listofdata.append(mydata.get(0).substring(0,headLen-1)+"\t"+"MetGroup"+"\t"+"PeakType"+"\t"+"Salt"+"\t"+"useLabel"+"\t"+"MatchedMF"+"\t"+"Adduct"+"\t"+"ppm"+"\t"+"Ionmode"+"\n");
+
+    // Initialise for Fourier/Isotope Peaks handling
+    double holdval;
+    double iratio=0;
+    double tdiff=0;
+    double[] tmass=new double[indata.size()];
+    String[] tlabel=new String[indata.size()];
+    String[] llabel=new String[indata.size()];
+    String[] ulabel=new String[indata.size()];
+    double[] llim=new double[indata.size()];
+    double[] ulim=new double[indata.size()];
+    double[] tcharge=new double[indata.size()];
+    double[] tperc=new double[indata.size()];
+    int tempval;
+    // initialise isotope info
+    for (int i=1;i<indata.size();i++) {
+        String inStr=indata.get(i);
+        String [] tempdata = inStr.split("\t");
+        String clabel = new String(tempdata[0]);
+        double cmass = new Double(tempdata[1]).doubleValue();
+        String cllabel = new String(tempdata[2]);
+        String culabel = new String(tempdata[3]);
+        double cllim = new Double(tempdata[4]).doubleValue();
+        double culim = new Double(tempdata[5]).doubleValue();
+        double ccharge = new Double(tempdata[6]).doubleValue();
+        double cperc = new Double(tempdata[7]).doubleValue();
+        tlabel[i]=clabel;
+        tmass[i]=cmass;
+        llabel[i]=cllabel;
+        ulabel[i]=culabel;
+        llim[i]=cllim;
+        ulim[i]=culim;
+        tcharge[i]=ccharge;
+        tperc[i]=cperc;
+    }
+
+    // Test for Fourier peaks - set peaks to F and useLabel=8
+    int holdPeak=0;
+    mtol=0.6;
+    for (int m=0;m<ncorr;m++) {
+        i=Pidx1[ordcorr[m]];
+        k=Pidx2[ordcorr[m]];
+        if (i>holdPeak) {
+            if (useLabel[i]<2 && useLabel[k]<2) {
+                if (Gcount[i]==0 || Gcount[k]==0 || (Gcount[i]==Gcount[k])) {
+                    // check whether mass differences are within mass diff range
+                    if (massdata[k]>massdata[i]+mtol) {
+                        holdPeak=i;
+                    }
+                    else {
+                        if(usecorr[ordcorr[m]]>0.8) {
+                             iratio=100*medval[k]/medval[i]; // peak 2 % of peak 1
+                             if (iratio>1000) {
+                                 useLabel[i]=8;
+                                 PeakLabel[i]="F";
+                                 PeakMatch[i]=PeakName[k];
+                                 PeakIndex[i]=k;
+                                 MassMatch[i]=massdata[k];
+                                 useLabel[k]=1;
+                                 PeakLabel[k]="M";
+                             }
+                             if (iratio<1) {
+                                 useLabel[i]=1;
+                                 PeakLabel[i]="M";
+                                 PeakLabel[k]="F";
+                                 PeakMatch[k]=PeakName[i];
+                                 PeakIndex[k]=i;
+                                 MassMatch[k]=massdata[i];
+                                 useLabel[k]=8;
+                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("MassMatch.csv"));
+    for(int i = 0; i < MassMatch.length; i++) {
+        writer.write(MassMatch[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // check for isotopes
+    // set tol to acceptable standard dependent on small diffs between masdiffs
+    double calcc;
+    double calcdiff;
+    int lnum;
+    int hnum;
+    for (int j=1;j<indata.size();j++) {
+        holdPeak=0;
+        if (tmass[j]<0.26) {
+            mtol=0.00075;
+        }
+        else {
+            mtol=0.0015;
+        }
+        for (int m=0;m<ncorr;m++) {
+            i=Pidx1[ordcorr[m]];
+            k=Pidx2[ordcorr[m]];
+            if (i>holdPeak) {
+                if (useLabel[i]<8 && useLabel[k]<2) {
+                    if (Gcount[i]==0 || Gcount[k]==0 || (Gcount[i]==Gcount[k])) {
+                        if (massdata[k]>massdata[i]+tmass[j]+mtol) {
+                            holdPeak=i;
+                        }
+                        else {
+                            if ((massdata[k]-massdata[i]>tmass[j]-mtol) && usecorr[ordcorr[m]]>corrlim) {
+                                iratio=100*medval[k]/medval[i]; // peak 2 % of peak 1
+                                if ((iratio/tperc[j])>llim[j] && (iratio/tperc[j])<ulim[j]*tcharge[j]) {
+                                    lnum=i;
+                                    hnum=k;
+                                    if (useLabel[lnum]==0) {
+                                        PeakLabel[lnum]=llabel[j];
+                                        if (tcharge[j]==1) {
+                                            useLabel[lnum]=1;
+                                        }
+                                        else {
+                                            useLabel[lnum]=7;
+                                        }
+                                    }
+                                    useLabel[hnum]=7;
+                                    PeakLabel[hnum]=ulabel[j];
+                                    PeakMatch[hnum]=PeakName[i];
+                                    PeakIndex[hnum]=lnum;
+                                    MassMatch[hnum]=massdata[lnum];
+                                    PCharge[lnum]=tcharge[j];
+                                    PCharge[hnum]=tcharge[j];
+                                    ILabel[lnum]=tlabel[j];
+                                    ILabel[hnum]=tlabel[j];
+                                    Inum[lnum]=iratio/tperc[j];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Inum.csv"));
+    for(int i = 0; i < Inum.length; i++) {
+        writer.write(Inum[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+
+    // Simplified Dimer Code - H only
+    holdPeak=0;
+    for (int m=0;m<ncorr;m++) {
+        i=Pidx1[ordcorr[m]];
+        k=Pidx2[ordcorr[m]];
+        if (i>holdPeak) {
+            if (useLabel[i]<2 && useLabel[k]<2) { // then A or M
+                if (Gcount[i]==0 || Gcount[k]==0 || (Gcount[i]==Gcount[k])) {
+                    mtol=(massdata[i]*2*tol)/1000000;
+                    if (mtol<masslim) {
+                        mtol=masslim;
+                    }
+                    newval=massdata[i]-1.00727*etol;
+                    newval=(newval*2)+1.00727*etol-mtol;
+                    if (massdata[k]>newval+2*mtol) {
+                        holdPeak=i;
+                    }
+                    else {
+                        if ((massdata[k]-newval>0) && (massdata[k]-newval<2*mtol) && usecorr[ordcorr[m]]>0.94) {
+                            useLabel[i]=2;
+                            PeakLabel[i]="M";
+                            PeakLabel[k]="D";
+                            useLabel[k]=2;
+                            PeakMatch[k]=PeakName[i];
+                            PeakIndex[k]=i;
+                            MassMatch[k]=massdata[i];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Inum.csv"));
+    for(int i = 0; i < Inum.length; i++) {
+        writer.write(Inum[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // Identify and annotate Adduct Peaks
+    // initialise adduct info and look for simple adducts and then combined adducts
+    int cmode;
+    int[] Amode=new int[adddata.size()];
+    String[] ALabel=new String[adddata.size()];
+    String[] iLabel=new String[adddata.size()];
+    double[] Amass=new double[adddata.size()];
+    for (int i=1;i<adddata.size();i++) {
+        String inStr=adddata.get(i);
+        String [] tempdata = inStr.split("\t");
+        int cmode = Integer.parseInt(tempdata[0]);
+        String calabel = new String(tempdata[1]);
+        String cilabel = new String(tempdata[2]);
+        double camass = new Double(tempdata[3]).doubleValue();
+        if (cmode==3) {
+            cmode=5;
+        }
+        if (cmode==1 && etol>0) {
+            if (calabel.equals("NH3")) {
+                cmode=3;
+            }
+            if (calabel.equals("HCOOH")) {
+                cmode=4;
+            }
+        }
+        Amode[i]=cmode;
+        ALabel[i]=calabel;
+        iLabel[i]=cilabel;
+        Amass[i]=camass;
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("Amode.csv"));
+    for(int i = 0; i < Amode.length; i++) {
+        writer.write(Amode[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    String tempLabel="";
+    for (int j=1;j<adddata.size();j++) {
+        holdPeak=0;
+        for (int m=1;m<3;m++) {
+            for (int c=0;c<ncorr;c++) {
+                i=Pidx1[ordcorr[c]];
+                k=Pidx2[ordcorr[c]];
+                mtol=(massdata[i]*2*tol)/1000000;
+                if (mtol<masslim) {
+                    mtol=masslim;
+                }
+                if (i>holdPeak && Amode[j]==m) {
+                    if (useLabel[i]<4 && useLabel[k]<3) { // then A or M or M adduct
+                        if (Gcount[i]==0 || Gcount[k]==0 || useLabel[i]<2 || useLabel[k]<2 || (Gcount[i]==Gcount[k])) {
+                            if (massdata[k]>massdata[i]+Amass[j]+mtol) {
+                                holdPeak=i;
+                            }
+                            else {
+                                if ((massdata[k]-massdata[i]>Amass[j]-mtol) && usecorr[ordcorr[c]]>corrlim) {
+                                    lnum=i;
+                                    hnum=k;
+                                    tempLabel=ALabel[j];
+                                    if (useLabel[lnum]<2) {
+                                        useLabel[lnum]=2;
+                                        PeakLabel[lnum]="M";
+                                    }
+                                    useLabel[hnum]=3;
+                                    PeakLabel[hnum]=PeakLabel[lnum]+"_"+tempLabel;
+                                    PeakMatch[hnum]=PeakName[lnum];
+                                    PeakIndex[hnum]=lnum;
+                                    MassMatch[hnum]=massdata[lnum];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("useLabel.csv"));
+    for(int i = 0; i < useLabel.length; i++) {
+        writer.write(useLabel[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // relook for special cases
+    for (int j=1;j<adddata.size();j++) {
+        if (Amode[j]>2) {
+            holdPeak=0;
+            for (int c=0;c<ncorr;c++) {
+                i=Pidx1[ordcorr[c]];
+                k=Pidx2[ordcorr[c]];
+                mtol=(massdata[i]*2*tol)/1000000;
+                if (mtol<masslim) {
+                   mtol=masslim;
+                }
+                if (i>holdPeak) {
+                    if (useLabel[i]<4 && useLabel[k]<3) { // then A or M or M adduct
+                        if (Gcount[i]==0 || Gcount[k]==0 || useLabel[i]<2 || useLabel[k]<2 || (Gcount[i]==Gcount[k])) {
+                            if (massdata[k]>massdata[i]+Amass[j]+mtol) {
+                                holdPeak=i;
+                            }
+                            else {
+                                if ((massdata[k]-massdata[i]>Amass[j]-mtol) && usecorr[ordcorr[c]]>corrlim) {
+                                    lnum=i;
+                                    hnum=k;
+                                    tempLabel=ALabel[j];
+                                    if (Amode[j]==3) {
+                                        if (useLabel[i]<2 && useLabel[k]<3 && (usecorr[ordcorr[c]]>0.97 || (medval[i]<medval[k]/2))) {
+                                            lnum=k;
+                                            hnum=i;
+                                            tempLabel="["+ALabel[j]+"]";
+                                        }
+                                        useLabel[lnum]=2;
+                                        PeakLabel[lnum]="M";
+                                        useLabel[hnum]=3;
+                                        PeakLabel[hnum]=PeakLabel[lnum]+"_"+tempLabel;
+                                        PeakMatch[hnum]=PeakName[lnum];
+                                        PeakIndex[hnum]=lnum;
+                                        MassMatch[hnum]=massdata[lnum];
+                                    }
+                                    if (Amode[j]==4 && useLabel[k]<3 && useLabel[i]<2) {
+                                        tempLabel="["+ALabel[j]+"]";
+                                        lnum=k;
+                                        hnum=i;
+                                        useLabel[lnum]=2;
+                                        PeakLabel[lnum]="M";
+                                        useLabel[hnum]=3;
+                                        PeakLabel[hnum]=PeakLabel[lnum]+"_"+tempLabel;
+                                        PeakMatch[hnum]=PeakName[lnum];
+                                        PeakIndex[hnum]=lnum;
+                                        MassMatch[hnum]=massdata[lnum];
+                                    }
+                                    if (Amode[j]==5 && etol<0 && useLabel[k]<3 && useLabel[i]<3) {
+                                        useLabel[i]=2;
+                                        PeakLabel[i]="M_"+iLabel[j];
+                                        useLabel[k]=3;
+                                        PeakLabel[k]="M_"+tempLabel;
+                                        PeakMatch[k]=PeakName[i];
+                                        PeakIndex[k]=i;
+                                        MassMatch[k]=massdata[i];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+//     BufferedWriter writer = new BufferedWriter(new FileWriter("PeakLabel.csv"));
+//     for(int i = 1; i < PeakLabel.length; i++) {
+//         writer.write(PeakLabel[i].toString());
+//         writer.write("\n");
+//     }
+//     writer.close();
+
+    // RETRY with greater tolerance for isotopes for unmatched features
+    for (int j=1;j<indata.size();j++) {
+        holdPeak=0;
+        if (tmass[j]<0.26) {
+            mtol=0.0015;
+        }
+        else {
+            mtol=0.002;
+        }
+        for (int m=0;m<ncorr;m++) {
+            i=Pidx1[ordcorr[m]];
+            k=Pidx2[ordcorr[m]];
+            if (i>holdPeak) {
+                if (useLabel[i]<8 && useLabel[k]<2) {
+                    if (Gcount[i]==0 || Gcount[k]==0 || (Gcount[i]==Gcount[k])) {
+                        if (massdata[k]>massdata[i]+tmass[j]+1.5*mtol) {
+                            holdPeak=i;
+                        }
+                        else {
+                            if ((massdata[k]-massdata[i]>tmass[j]-mtol) && usecorr[ordcorr[m]]>0.75) {
+                                iratio=100*medval[k]/medval[i];
+                                if ((iratio/tperc[j])>llim[j] && (iratio/tperc[j])<ulim[j]*tcharge[j]) {
+                                    lnum=i;
+                                    hnum=k;
+                                    if ((ILabel[lnum]==tlabel[j]) || ILabel[lnum].equals("N")) {
+                                        if (useLabel[lnum]==0) {
+                                            PeakLabel[lnum]=llabel[j];
+                                            if (tcharge[j]==1) {
+                                                useLabel[lnum]=1;
+                                            }
+                                            else {
+                                               useLabel[lnum]=6;
+                                            }
+                                        }
+                                    }
+                                    useLabel[hnum]=6;
+                                    PeakLabel[hnum]=ulabel[j];
+                                    PeakMatch[hnum]=PeakName[i];
+                                    PeakIndex[hnum]=lnum;
+                                    MassMatch[hnum]=massdata[lnum];
+                                    PCharge[lnum]=tcharge[j];
+                                    PCharge[hnum]=tcharge[j];
+                                    ILabel[lnum]=tlabel[j];
+                                    ILabel[hnum]=tlabel[j];
+                                    Inum[lnum]=iratio/tperc[j];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("PCharge.csv"));
+    for(int i = 1; i < PCharge.length; i++) {
+        writer.write(PCharge[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // write out annotated group info into existing groups
+    tnum=0;
+    hno=0;
+    tno=0;
+    for (int i=1;i<mydata.size();i++) {
+        WorkLabel[i]=PeakLabel[i];
+        if (i!=PeakIndex[i]) {
+            tnum=PeakIndex[i];
+            if (Gcount[i]==0 && Gcount[tnum]==0) {
+                gno=gno+1;
+                Gcount[i]=gno;
+                Gcount[tnum]=gno;
+            }
+            if (Gcount[i]>0 && Gcount[tnum]==0) {
+                Gcount[tnum]=Gcount[i];
+            }
+            if (Gcount[i]==0 && Gcount[tnum]>0) {
+                Gcount[i]=Gcount[tnum];
+            }
+            if (Gcount[i]>0 && Gcount[tnum]>0) {
+                if (Gcount[i] != Gcount[tnum]) {
+                    if (Gcount[i]>Gcount[tnum]) {
+                        hno=Gcount[i];
+                        tno=Gcount[tnum];
+                    }
+                    if (Gcount[i]<Gcount[tnum]) {
+                        hno=Gcount[tnum];
+                        tno=Gcount[i];
+                    }
+                    for (int k=1;k<mydata.size();k++) {
+                        if (Gcount[k]==hno) {
+                            Gcount[k]=tno;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("WorkLabel.csv"));
+    for(int i = 1; i < WorkLabel.length; i++) {
+        writer.write(WorkLabel[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // SubGroup related Peaks
+    tnum=0;
+    hno=0;
+    tno=0;
+    Integer Sgno=0;
+    for (int i=1;i<mydata.size();i++) {
+        if (i!=PeakIndex[i]) {
+            tnum=PeakIndex[i];
+            if (SGcount[i]==0 && SGcount[tnum]==0) {
+                Sgno=Sgno+1;
+                SGcount[i]=Sgno;
+                SGcount[tnum]=Sgno;
+            }
+            if (SGcount[i]>0 && SGcount[tnum]==0) {
+                SGcount[tnum]=SGcount[i];
+            }
+            if (SGcount[i]==0 && SGcount[tnum]>0) {
+                SGcount[i]=SGcount[tnum];
+            }
+            if (SGcount[i]>0 && SGcount[tnum]>0) {
+                if (SGcount[i] != SGcount[tnum]) {
+                    if (SGcount[i]>SGcount[tnum]) {
+                        hno=SGcount[i];
+                        tno=SGcount[tnum];
+                    }
+                    if (SGcount[i]<SGcount[tnum]) {
+                       hno=SGcount[tnum];
+                       tno=SGcount[i];
+                    }
+                    for (int k=1;k<mydata.size();k++) {
+                        if (SGcount[k]==hno) {
+                            SGcount[k]=tno;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    BufferedWriter writer = new BufferedWriter(new FileWriter("SGcount.csv"));
+    for(int i = 1; i < SGcount.length; i++) {
+        writer.write(SGcount[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // annotate Cl info
+    for (int k=1;k<mydata.size();k++) {
+        if (useLabel[k]<6) {
+            if (ILabel[k].equals("Cl")){
+                if (Inum[k]>0.56) {
+                    Inum[k]=Inum[k]-0.4;
+                    int tfloor=1+(int)Inum[k];
+                    if (PeakLabel[k].equals("M") && ILabel[k].equals("Cl")) {
+                        if (tfloor==2 || tfloor==3) {
+                            PeakLabel[k]="M_MCl"+"x"+tfloor;
+                        }
+                        else {
+                            PeakLabel[k]="M_MCl";
+                        }
+                        useLabel[k]=2;
+                    }
+                    PeakLabel[k]=PeakLabel[k]+";"+ILabel[k]+";"+tfloor;
+                    Inum[k]=Inum[k]+0.4;
+                }
+            }
+        }
+    }
+
+    // write out annotated Peak data
+    String myStr;
+    String UseStr;
+    tnum=0;
+    int igno = Sgno.intValue()+1;
+    int[] glist=new int[igno];
+    Integer mygcount=0;
+    for (int j=0;j<igno;j++) {
+        glist[j]=mygcount;
+        mygcount++;
+    }
+
+    // calculate salt mass
+    double[] SaltMass=new double[200];
+    String[] SaltType=new String[200];
+    double NaCl=57.95862;
+    double Kdiff=15.97394;
+    double Fodiff=10.0288;
+    double Cldiff=1.9972;
+    int scount=0;
+    double tempmass=0;
+    double holdmass=0;
+    double Kmass=0;
+    double massion=0;
+    String saltout="";
+    String formout="";
+    String salt="(NaCl)";
+    String iso="";
+    String niso="Cl-";
+    String piso="Na+";
+    double massion;
+    int istart=0;
+    int iend=0;
+    if (etol>0) {
+        iso=iso+piso;
+        massion=massion+22.98977;
+        istart=istart+2;
+    }
+    else {
+        iso=iso+niso;
+        massion=massion=34.96885;
+        istart=istart+1;
+    }
+    for (int i=1;i<6;i++) {
+        tempmass=(NaCl*i) + massion;
+        if (i<2) {
+            saltout=salt+iso;
+            formout="(HCOONa)"+iso;
+        }
+        else {
+            saltout=salt+i+iso;
+            formout="HCOONa_"+salt+(i-1)+iso;
+        }
+        SaltMass[scount]=tempmass;
+        SaltType[scount]=saltout;
+        scount=scount+1;
+        holdmass=tempmass;
+        Kmass=tempmass;
+        iend=i+1;
+        if (i>3) {
+           iend=4;
+        }
+        for (j=1;j<iend;j++) {
+            tempmass=tempmass+Cldiff;
+            SaltMass[scount]=tempmass;
+            SaltType[scount]=saltout+" Isotope";
+            scount=scount+1;
+        }
+        // add in HCOONa + isotopes
+        holdmass=holdmass+Fodiff;
+        SaltMass[scount]=holdmass;
+        SaltType[scount]=formout;
+        scount=scount+1;
+        for (j=istart;j<iend;j++) {
+            holdmass=holdmass+Cldiff;
+            SaltMass[scount]=holdmass;
+            SaltType[scount]=formout + " Isotope";
+            scount=scount+1;
+        }
+        // add in K adducts
+        Kmass=Kmass+Kdiff;
+        if (etol>0 && i==1) {
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(NaCl)K+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(NaCl)K+ Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Fodiff;
+            SaltType[scount]="HCOONa_K+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff;
+            SaltType[scount]="(KCl)K+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff+Cldiff;
+            SaltType[scount]="(KCl)K+ Isotope";
+            scount=scount+1;
+        }
+        if (etol>0 && i==2) {
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(NaCl)2K+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(NaCl)2K+ Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+(Cldiff)*2;
+            SaltType[scount]="(NaCl)2K+ Isotope";
+            scount=scount+1;
+            Kmass=Kmass+Kdiff;
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(KCl)2Na+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(KCl)2Na+ Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+(Cldiff)*2;
+            SaltType[scount]="(KCl)2Na+ Isotope";
+            scount=scount+1;
+            Kmass=Kmass+Kdiff;
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(KCl)2K+";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(KCl)2K+ Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+(Cldiff)*2;
+            SaltType[scount]="(KCl)2K+ Isotope";
+            scount=scount+1;
+        }
+        if (etol<0 && i==1) {
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(KCl)Cl-";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(KCl)Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+(Cldiff)*2;
+            SaltType[scount]="(KCl)Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Fodiff;
+            SaltType[scount]="HCOOK_Cl-";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Fodiff+Cldiff;
+            SaltType[scount]="HCOOK_Cl- Isotope";
+            scount=scount+1;
+        }
+        if (etol<0 && i==2) {
+            SaltMass[scount]=Kmass;
+            SaltType[scount]="(NaKCl2)Cl-";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Cldiff;
+            SaltType[scount]="(NaKCl2)Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+(Cldiff)*2;
+            SaltType[scount]="(NaKCl2)Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff;
+            SaltType[scount]="(KCl)2Cl-";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff+Cldiff;
+            SaltType[scount]="(KCl)2Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff+(Cldiff)*2;
+            SaltType[scount]="(KCl)2Cl- Isotope";
+            scount=scount+1;
+            SaltMass[scount]=Kmass+Kdiff+(Cldiff)*3;
+            SaltType[scount]="(KCl)2Cl- Isotope";
+            scount=scount+1;
+        }
+    }
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter("massdata.csv"));
+    for(int i = 1; i < massdata.length; i++) {
+        writer.write(massdata[i].toString());
+        writer.write("\n");
+    }
+    writer.close();
+
+    // write SaltType into SaltLabel for peak and set useLabel to 5
+    mtol=0.0015;
+    for (int j=0;j<scount;j++) {
+        newval=SaltMass[j]-mtol;
+//         System.out.println("SaltMass[j]: " + SaltMass[j]);
+//         System.out.println("newval: " + newval);
+        idx1=0;
+        idx2=0;
+        idx1=Arrays.binarySearch(massdata,newval);
+//         System.out.println("idx1: " + idx1);
+        idx2=-idx1;
+        if (idx2>1) {
+            for (int k=idx2-1;k<mydata.size();k++) {
+                if (massdata[k]>newval+2*mtol) {
+                    break;
+                }
+                else {
+                    if (useLabel[k]<9) {
+                        SaltLabel[k]=SaltType[j];
+                        useLabel[k]=5;
+                    }
+                }
+            }
+        }
+    }
+
+    // MASS MATCH AND MF DETERMINATION
+    nsym=18;
+    double[] iondata=new double[nsym];
+    String[] ionsym = new String[nsym];
+    int[] Apriority=new int[nsym];
+    int[] clflag = new int[nsym];
+    // check for ions and adducts
+    ionsym[0]="H";
+    ionsym[1]="Na";
+    ionsym[2]="K";
+    ionsym[3]="NH3";
+    ionsym[4]="Na_Na";
+    ionsym[5]="NaCl";
+    ionsym[6]="KCl";
+    ionsym[7]="HCOONa";
+    ionsym[8]="HCOOK";
+    ionsym[9]="Na_HCOONa";
+    ionsym[10]="NaClx2";
+    ionsym[11]="NaCl_HCOONa";
+    ionsym[12]="HCOOH";
+    ionsym[13]="MCl";
+    ionsym[14]="Cl";
+    ionsym[15]="[NH3]";
+    ionsym[16]="[HCOOH]";
+    ionsym[17]="HCOONa_HCOONa";
+
+    // put in Alternative for Adduct if appropriate;
+    Apriority[0]=1;
+    Apriority[1]=4;
+    Apriority[2]=100;
+    Apriority[3]=0;
+    Apriority[4]=100;
+    Apriority[5]=100;
+    Apriority[6]=100;
+    Apriority[7]=9;
+    Apriority[8]=100;
+    Apriority[9]=100;
+    Apriority[10]=100;
+    Apriority[11]=100;
+    Apriority[12]=0;
+    Apriority[13]=14;
+    Apriority[14]=5;
+    Apriority[15]=0;
+    Apriority[16]=0;
+    Apriority[17]=100;
+
+    clflag[0]=0;
+    clflag[1]=0;
+    clflag[2]=0;
+    clflag[3]=0;
+    clflag[4]=0;
+    clflag[5]=1;
+    clflag[6]=1;
+    clflag[7]=0;
+    clflag[8]=0;
+    clflag[9]=0;
+    clflag[10]=1;
+    clflag[11]=1;
+    clflag[12]=0;
+    clflag[13]=1;
+    clflag[14]=1;
+    clflag[15]=0;
+    clflag[16]=0;
+    clflag[17]=0;
+
+    // adjust for ion mode
+    double H=1.007825;
+    double e=0.000549;
+    Double Hp=1.00728;
+    double mode_adjust=0;
+    Integer eval=1;
+    if (etol<0) {
+        Hp=-Hp;
+    }
+
+    iondata[0]=Hp;
+    iondata[1]=21.98194+Hp;
+    iondata[2]=37.95588+Hp;
+    iondata[3]=17.02655+Hp;
+    iondata[4]=iondata[1]*2-Hp;
+    iondata[5]=57.95862+Hp;
+    iondata[6]=73.93256+Hp;
+    iondata[7]=67.98742+Hp;
+    iondata[8]=83.96136+Hp;
+    iondata[9]=iondata[1]+iondata[7]-Hp;
+    iondata[10]=iondata[5]*2-Hp;
+    iondata[11]=iondata[5]+iondata[7]-Hp;
+    iondata[12]=46.00548+Hp;
+    iondata[13]=57.95862+Hp;
+    iondata[14]=35.97668+Hp;
+    iondata[15]=-17.02655+Hp;
+    iondata[16]=-46.00548+Hp;
+    iondata[17]=iondata[7]*2-Hp;
+
+    Integer multi=0;
+    // Match for metabolites (not isotope, Fourier peaks etc)
+    // with no adducts
+    for (int k=1;k<mydata.size();k++) {
+        if (useLabel[k]<2) {
+        myStr=mydata.get(k);
+            headLen=mydata.get(k).length();
+            String MFStr="";
+            String AdductStr="";
+            idx1=0;
+            idx2=0;
+            multi=1;
+            for (int j=0;j<13;j++) {
+                if (j<12 || (j==12 && etol<1 && RTdata[k]>80)) {
+                    mval=massdata[k]-iondata[j];
+                    ppmStr="";
+                    idx1=Arrays.binarySearch(MFdata,mval-0.1);
+                    idx2=-idx1;
+                    if (idx2>0) {
+                        for (int i=idx2-1;i<refdata.size();i++)   {
+                            double nlim = 0;
+                            nlim=tol*massdata[k]/1000000;
+                            if (nlim<masslim) {
+                                nlim=masslim;
+                            }
+                            if (MFdata[i]>(mval+0.1))
+                                break;
+                            if (mval>=(MFdata[i]-nlim) && mval<=(MFdata[i]+nlim)) {
+                                double diffval=MFdata[i]-mval;
+                                ppmcalc=(MFdata[i]-mval)*1000000/massdata[k];
+                                kcount=kcount+1;
+                                if (ppmcalc<0) {
+                                    ppmcalc=-ppmcalc;
+                                }
+                                ppmStr=Double.toString(ppmcalc);
+                                listofdata.append(mydata.get(k).substring(0,headLen-1)+"\t"+SGcount[k]+"\t"+PeakLabel[k]+"\t"+SaltLabel[k]+"\t"+useLabel[k]+"\t"+MFformula[i]+"\t"+ionsym[j]+"\t"+ppmStr+"\t"+elabel+"\n");
+                                matchMF[k]=matchMF[k]+1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Match for metabolites with adducts (not isotope or Fourier peaks,
+    int OK_Cl=1;
+    for (int k=1;k<mydata.size();k++) {
+        if (useLabel[k]>1 && useLabel[k]<5) {
+            multi=1;
+            OK_Cl=1;
+            String[] ddata=PeakLabel[k].split("_");
+            if (ddata.length<4) {
+                // look to split off ;Cl; and multiplier x
+                String[] Cldata=PeakLabel[k].split(";Cl;");
+                String[] mdata=PeakLabel[k].split("x");
+                if (Cldata.length==2) {
+                    WorkLabel[k]=Cldata[0];
+                    multi=Integer.parseInt(Cldata[1]);
+                    if (multi>1) {
+                        if (mdata.length==2) {
+                            String[] mdata=Cldata[0].split("x");
+                            WorkLabel[k]=mdata[0];
+                        }
+                    }
+                }
+                if (Cldata.length<2 && mdata.length==2 && ddata.length<3) {
+                    WorkLabel[k]=mdata[0];
+                    multi=Integer.parseInt(mdata[1]);
+                }
+                if (multi<4) {
+                    for (int j=0;j<nsym;j++) {
+                        if (j==0) {
+                            tempLabel="M";
+                        }
+                        else {
+                            tempLabel="M_"+ionsym[j];
+                        }
+                        if (WorkLabel[k].equals(tempLabel)) {
+                            myStr=mydata.get(k);
+                            headLen=mydata.get(k).length();
+                            if ((Cldata.length==2 && clflag[j]==0) || (mdata.length==2 && clflag[j]==0)) {
+                                OK_Cl=-1;
+                            }
+                            String AdductStr="";
+                            if (OK_Cl>0) {
+                                idx1=0;
+                                idx2=0;
+                                if (multi==1) {
+                                    mval=massdata[k]-iondata[j];
+                                }
+                                else {
+                                    mval=massdata[k]-(iondata[j]*multi)+(multi-1)*Hp;
+                                }
+                                ppmStr="";
+                                idx1=Arrays.binarySearch(MFdata,mval-0.1);
+                                idx2=-idx1;
+                                if (idx2>0) {
+                                    for (int i=idx2-1;i<refdata.size();i++)   {
+                                        double nlim = 0;
+                                        nlim=tol*massdata[k]/1000000;
+                                        if (nlim<0.00075) {
+                                            nlim=0.00075;
+                                        }
+                                        if (MFdata[i]>(mval+0.1)) break;
+                                            if (mval>=(MFdata[i]-nlim) && mval<=(MFdata[i]+nlim)) {
+                                                double diffval=MFdata[i]-mval;
+                                                ppmcalc=(MFdata[i]-mval)*1000000/massdata[k];
+                                                AdductStr=ionsym[j];
+                                                if (AdductStr.equals("MCl")) {
+                                                   AdductStr="NaCl";
+                                                }
+                                                if (multi>1) {
+                                                    AdductStr=AdductStr+"*"+multi;
+                                                }
+                                                if (ppmcalc<0) {
+                                                    ppmcalc=-ppmcalc;
+                                                }
+                                                ppmStr=Double.toString(ppmcalc);
+                                                listofdata.append(mydata.get(k).substring(0,headLen-1)+"\t"+ SGcount[k]+"\t"+PeakLabel[k]+"\t"+SaltLabel[k]+"\t"+useLabel[k]+"\t"+MFformula[i]+"\t"+AdductStr+"\t"+ppmStr+"\t"+elabel+"\n");
+                                                matchMF[k]=matchMF[k]+1;
+                                            }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (int k=1;k<mydata.size();k++) {
+        if (useLabel[k]>1 && useLabel[k]<5) {
+            multi=1;
+            OK_Cl=1;
+            String[] ddata=PeakLabel[k].split("_");
+                if (ddata.length<3) {
+                    // look to split off ;Cl; and multiplier x
+                    String[] Cldata=PeakLabel[k].split(";Cl;");
+                    String[] mdata=PeakLabel[k].split("x");
+                    if (Cldata.length==2) {
+                        WorkLabel[k]=Cldata[0];
+                        multi=Integer.parseInt(Cldata[1]);
+                        if (multi>1) {
+                            if (mdata.length==2) {
+                                String[] mdata=Cldata[0].split("x");
+                                WorkLabel[k]=mdata[0];
+                            }
+                        }
+                    }
+                    if  (Cldata.length<2 && mdata.length==2 && ddata.length<3) {
+                        WorkLabel[k]=mdata[0];
+                        multi=Integer.parseInt(mdata[1]);
+                    }
+                    if (multi<4) {
+                        for (int j=0;j<nsym;j++) {
+                            if (j==0) {
+                                tempLabel="M";
+                            }
+                            else {
+                                tempLabel="M_"+ionsym[j];
+                            }
+                            if (WorkLabel[k].equals(tempLabel)) {
+                                // need to check that multi is valid (Cl in adduct)
+                                myStr=mydata.get(k);
+                                headLen=mydata.get(k).length();
+                                if ((Cldata.length==2 && clflag[j]==0) || (mdata.length==2 && clflag[j]==0)) {
+                                    OK_Cl=-1;
+                                }
+                                if (j==0 && etol<0) {
+                                    tnum=12;
+                                }
+                                else {
+                                    tnum=Apriority[j];
+                                }
+                                if (tnum<100) {
+                                String AdductStr="";
+                                    if (OK_Cl>0) {
+                                    idx1=0;
+                                    idx2=0;
+                                    if (multi==1) {
+                                        mval=massdata[k]-iondata[tnum];
+                                    }
+                                    else {
+                                        mval=massdata[k]-(iondata[tnum]*multi)+(multi-1)*Hp;
+                                    }
+                                    ppmStr="";
+                                    idx1=Arrays.binarySearch(MFdata,mval-0.1);
+                                    idx2=-idx1;
+                                    if (idx2>0) {
+                                        for (int i=idx2-1;i<refdata.size();i++)   {
+                                            double nlim = 0;
+                                            nlim=tol*massdata[k]/1000000;
+                                            if (MFdata[i]>(mval+0.1)) break;
+                                                if (mval>=(MFdata[i]-nlim) && mval<=(MFdata[i]+nlim)) {
+                                                double diffval=MFdata[i]-mval;
+                                                ppmcalc=(MFdata[i]-mval)*1000000/massdata[k];
+                                                AdductStr=ionsym[tnum];
+                                                if (multi>1) {
+                                                    AdductStr=AdductStr+"*"+multi;
+                                                }
+                                                if (ppmcalc<0) {
+                                                    ppmcalc=-ppmcalc;
+                                                }
+                                                ppmStr=Double.toString(ppmcalc);
+                                                listofdata.append(mydata.get(k).substring(0,headLen-1)+"\t"+SGcount[k]+"\t"+PeakLabel[k]+"\t"+SaltLabel[k]+"\t"+useLabel[k]+"\t"+MFformula[i]+"\t"+AdductStr+"\t"+ppmStr+"\t"+elabel+"\n");
+                                                matchMF[k]=matchMF[k]+1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (int k=1;k<mydata.size();k++) {
+        if (matchMF[k]<1) {
+            myStr=mydata.get(k);
+            String [] checkdata = myStr.split("\t");
+            Integer temptab = checkdata.length;
+            headLen=mydata.get(k).length();
+            String UseStr=mydata.get(k).substring(0,headLen-1);
+            if (useLabel[k]==5) {
+                PeakLabel[k]="S";
+            }
+            listofdata.append(UseStr+"\t"+SGcount[k]+"\t"+PeakLabel[k]+"\t"+SaltLabel[k]+"\t"+useLabel[k]+"\t"+"\t"+"\t"+"\t"+elabel+"\n");
+        }
+    }
+}
+else {
+    listofdata.append("Data not processed - "+tempStr1+";"+tempStr3);
+}
+
+outtxt=listofdata.toString();
+
+// System.out.println(outtxt);
