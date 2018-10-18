@@ -76,50 +76,63 @@ write.table(
     row.names=TRUE,
     col.names=TRUE)
 
-# Compare regimens
-facFcVn <- factor(pos_sampleMetadata[, "regimen"])
-facLevVc <- levels(facFcVn)
-
-# Get timepoint
-TPfac <- factor(pos_sampleMetadata[, "timepoint"])
-TPlev <- levels(TPfac)
-
-# Use tapply to analyse data
-t_pos_dataMatrix <- t(pos_dataMatrix)
-batchfac <- factor(pos_sampleMetadata[,"batch"])
-tapply(t_pos_dataMatrix[,1], batchfac, mean)
-
-# Use tapply from within a function
-doStuff <- function(x) {
-    tapply(x, batchfac, mean)
+#' Calculate means for multiple groups
+#'
+#' @param x A vector of values for mean calculation
+#' @param tp5RegARegB_regimen_fac A vector of values representing factors associated with x vector
+#' @return The matrix of meanvalues for each factor represented in tp5RegARegB_regimen_fac
+#' @examples
+#' calcMean(10, 1)
+calcMean <- function(x, tp5RegARegB_regimen_fac) {
+    tapply(x, tp5RegARegB_regimen_fac, mean)
 }
-
-# Use the above function to run through all the peak features
-t_pos_dataMatrix <- t(pos_dataMatrix)
-staVn <- apply(t_pos_dataMatrix, 2, doStuff)
-
-# Extract sample IDs data based on timepoint 5
-tp5dat <- pos_sampleMetadata[pos_sampleMetadata[, "timepoint"] == "5", ]
-# Extract sample IDs for regimen A and B data from tp5dat
-tp5RegARegBdat <- tp5dat[tp5dat[, "regimen"] == "A" | tp5dat[, "regimen"] == "B", ]
-fac <- factor(tp5RegARegBdat[, "regimen"])
 
 #' Calculate means for multiple groups
 #'
-#' @param x A vector
-#' @param fac A factor
-#' @return The matrix of means for the groups.
+#' @param x A vector of values for mean calculation
+#' @param tp5RegARegB_regimen_fac A vector of values representing factors associated with x vector
+#' @return The matrix of mean values calculated for each factor represented in tp5RegARegB_regimen_fac
 #' @examples
-#' add(1, 1)
-#' add(10, 1)
-doStuff2 <- function(x, fac) {
-    tapply(x, fac, mean)
+#' calcMean(10, 1)
+calcStdDev <- function(x, tp5RegARegB_regimen_fac) {
+    tapply(x, tp5RegARegB_regimen_fac, sd)
 }
+
+#' Calculate t-test for multiple groups
+#'
+#' @param x A vector of values for mean calculation
+#' @param tp5RegARegB_regimen_fac A vector of values representing factors associated with x vector
+#' @return The matrix of mean values calculated for each factor represented in tp5RegARegB_regimen_fac
+#' @examples
+#' calcMean(10, 1)
+performTTest <- function(x, tp5RegARegB_regimen_fac) {
+    # Need to split data based on the 2 factor groups
+    grp_data <- split(x, tp5RegARegB_regimen_fac)
+    ttest <- t.test(grp_data[[1]], grp_data[[2]])
+    return(ttest$p.value)
+}
+
+# Get timepoints
+tp_fac <- factor(pos_sampleMetadata[, "timepoint"])
+tp_lev <- levels(tp_fac)
+
+# Extract sample IDs data based on timepoint 5
+tp5_sample_meta <- pos_sampleMetadata[pos_sampleMetadata[, "timepoint"] == "5", ]
+# Extract sample IDs for regimen A and B data from tp5_sample_meta
+tp5RegARegB_sample_meta <- tp5_sample_meta[tp5_sample_meta[, "regimen"] == "A" | tp5_sample_meta[, "regimen"] == "B", ]
+tp5RegARegB_regimen_fac <- factor(tp5RegARegB_sample_meta[, "regimen"])
+
+t_pos_dataMatrix <- t(pos_dataMatrix)
+
 # Extract peak feature values for Reg A and B
-data <- t_pos_dataMatrix[rownames(tp5RegARegBdat), ]
-# Check length of data
-print(paste("length of data", length(data)))
-print(paste("length of factor", length(fac)))
-# Call function
-new2 <- apply(data, 2, doStuff2, fac=fac)
+data <- t_pos_dataMatrix[rownames(tp5RegARegB_sample_meta), ]
+
+# Call function to do t-tests
+if(nrow(data) != length(tp5RegARegB_regimen_fac)) {
+    stop("The number of rows in data needs to equal length of fac!!")
+} else {
+    means <- apply(data, 2, calcMean, fac=tp5RegARegB_regimen_fac)
+    stdevs <- apply(data, 2, calcStdDev, fac=tp5RegARegB_regimen_fac)
+    pvalues <- apply(data, 2, performTTest, fac=tp5RegARegB_regimen_fac)
+}
 
