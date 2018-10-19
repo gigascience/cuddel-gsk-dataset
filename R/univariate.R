@@ -3,6 +3,8 @@
 # Created by: peterli
 # Created on: 9/10/2018
 
+library(ggfortify)
+
 source("functions.R")
 
 # Location of GSK data set
@@ -118,3 +120,20 @@ for(i in 1:length(tp_levs)) {
         tp_pvalues[, i] <- t_pvalues
     }
 }
+
+t_tp_RegA_means <- t(tp_RegA_means)
+
+# Basic line plot with points
+ggplot(data=t_tp_RegA_means, aes(x=rownames(t_tp_RegA_means), y=t_tp_RegA_means[,1], group=1)) +
+    geom_line() +
+    geom_point()
+# Change the line type
+ggplot(data=df, aes(x=P210, y=len, group=1)) +
+    geom_line(linetype = "dashed")+
+    geom_point()
+# Change the color
+ggplot(data=df, aes(x=dose, y=len, group=1)) +
+    geom_line(color="red")+
+    geom_point()
+
+ggsave("mtcars.pdf")
