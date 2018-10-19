@@ -55,27 +55,66 @@ performTTest <- function(x, fac) {
     return(ttest$p.value)
 }
 
-# Get timepoints
+# Get timepoints as a factor
 tp_fac <- factor(pos_sampleMetadata[, "timepoint"])
-tp_lev <- levels(tp_fac)
+# Get the levels of the timepoint factor
+tp_levs <- levels(tp_fac)
+# Remove -1 timepoint factor level as this corresponds to QCs
+tp_levs <- tp_levs[2:length(tp_levs)]
 
-# Extract sample IDs data based on timepoint 5
-tp5_sample_meta <- pos_sampleMetadata[pos_sampleMetadata[, "timepoint"] == "5", ]
-# Extract sample IDs for regimen A and B data from tp5_sample_meta
-tp5RegARegB_sample_meta <- tp5_sample_meta[tp5_sample_meta[, "regimen"] == "A" | tp5_sample_meta[, "regimen"] == "B", ]
-tp5RegARegB_regimen_fac <- factor(tp5RegARegB_sample_meta[, "regimen"])
-
+# Transpose
 t_pos_dataMatrix <- t(pos_dataMatrix)
 
-# Extract peak feature values for Reg A and B
-data <- t_pos_dataMatrix[rownames(tp5RegARegB_sample_meta), ]
+# Create matrices to hold TP data for regimens A and B - 23 rows * 8 TP levels
+tp_RegA_means <- matrix(0, nrow=23, ncol=8)
+colnames(tp_RegA_means) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+rownames(tp_RegA_means) <- colnames(t_pos_dataMatrix)
 
-# Call function to do t-tests
-if(nrow(data) != length(tp5RegARegB_regimen_fac)) {
-    stop("The number of rows in data needs to equal length of fac!!")
-} else {
-    means <- apply(data, 2, calcMean, fac=tp5RegARegB_regimen_fac)
-    stdevs <- apply(data, 2, calcStdDev, fac=tp5RegARegB_regimen_fac)
-    pvalues <- apply(data, 2, performTTest, fac=tp5RegARegB_regimen_fac)
+tp_RegA_stdevs <- matrix(0, 23, 8)
+colnames(tp_RegA_stdevs) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+rownames(tp_RegA_stdevs) <- colnames(t_pos_dataMatrix)
+
+tp_RegB_means <- matrix(0, 23, 8)
+colnames(tp_RegB_means) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+rownames(tp_RegB_means) <- colnames(t_pos_dataMatrix)
+
+tp_RegB_stdevs <- matrix(0, 23, 8)
+colnames(tp_RegB_stdevs) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+rownames(tp_RegB_stdevs) <- colnames(t_pos_dataMatrix)
+
+tp_pvalues <- matrix(0, 23, 8)
+colnames(tp_pvalues) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+rownames(tp_pvalues) <- colnames(t_pos_dataMatrix)
+
+# Loop over timepoint levels
+for(i in 1:length(tp_levs)) {
+    # Extract sample IDs data based on timepoint 5
+    tp_sample_meta <- pos_sampleMetadata[pos_sampleMetadata[, "timepoint"] == tp_levs[i], ]
+    # Get regimen factor
+    # Extract sample IDs for regimen A and B data from tp_sample_meta
+    tp_reg_sample_meta <- tp_sample_meta[tp_sample_meta[, "regimen"] == "A" | tp_sample_meta[, "regimen"] == "B", ]
+    # Get regimen factor
+    regimen_fac <- factor(tp_reg_sample_meta[, "regimen"])
+
+    # Extract peak feature values for Reg A and B
+    data <- t_pos_dataMatrix[rownames(tp_reg_sample_meta), ]
+
+    # Call function to do t-tests
+    if(nrow(data) != length(regimen_fac)) {
+        stop("The number of rows in data needs to equal length of fac!!")
+    } else {
+        means <- apply(data, 2, calcMean, fac=regimen_fac)
+        t_means <- t(means)
+        tp_RegA_means[, i] <- t_means[, "A"]
+        tp_RegB_means[, i] <- t_means[, "B"]
+
+        stdevs <- apply(data, 2, calcStdDev, fac=regimen_fac)
+        t_stdevs <- t(stdevs)
+        tp_RegA_stdevs[, i] <- t_stdevs[, "A"]
+        tp_RegB_stdevs[, i] <- t_stdevs[, "B"]
+
+        pvalues <- apply(data, 2, performTTest, fac=regimen_fac)
+        t_pvalues <- t(pvalues)
+        tp_pvalues[, i] <- t_pvalues
+    }
 }
-
