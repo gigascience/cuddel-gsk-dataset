@@ -122,18 +122,34 @@ for(i in 1:length(tp_levs)) {
 }
 
 t_tp_RegA_means <- t(tp_RegA_means)
+t_tp_RegA_stdevs <- t(tp_RegA_stdevs)
+# Combine data for RegA P210
+d <- cbind(t_tp_RegA_means[,1], t_tp_RegA_stdevs[,1])
+colnames(d) <- c("Mean", "SD")
 
-# Basic line plot with points
-ggplot(data=t_tp_RegA_means, aes(x=rownames(t_tp_RegA_means), y=t_tp_RegA_means[,1], group=1)) +
-    geom_line() +
-    geom_point()
-# Change the line type
-ggplot(data=df, aes(x=P210, y=len, group=1)) +
-    geom_line(linetype = "dashed")+
-    geom_point()
-# Change the color
-ggplot(data=df, aes(x=dose, y=len, group=1)) +
-    geom_line(color="red")+
-    geom_point()
+t_tp_RegB_means <- t(tp_RegB_means)
+t_tp_RegB_stdevs <- t(tp_RegB_stdevs)
+# Combine data for RegB P210
+d2 <- cbind(t_tp_RegB_means[,1], t_tp_RegB_stdevs[,1])
+colnames(d2) <- c("Mean", "SD")
 
-ggsave("mtcars.pdf")
+# Plot line graph with points
+TimePoint <- factor(rownames(t_tp_RegA_means), level = c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24"))
+P210_regA <- t_tp_RegA_means[,1]
+P210_regB <- t_tp_RegB_means[,1]
+
+# The errorbars overlapped, so use position_dodge to move them horizontally
+pd <- position_dodge(0.1) # move them .05 to the left and right
+
+ggplot() +
+    geom_line(data=d, aes(x=TimePoint, y=d[,1]), color="blue", group=1) +
+    geom_point(data=d, mapping=aes(x=TimePoint, y=d[,1]), size=4, shape=21, fill="white", color="blue") +
+    geom_errorbar(data=d, mapping=aes(x=TimePoint, ymin=d[,1]-d[,2], ymax=d[,1]+d[,2]), width=0.2, size=1, color="blue", position=pd) +
+    geom_line(data=d2, aes(x=TimePoint, y=d2[,1]), color="red", group=2) +
+    geom_point(data=d2, mapping=aes(x=TimePoint, y=d2[,1]), size=4, shape=21, fill="white", color="red") +
+    geom_errorbar(data=d2, mapping=aes(x=TimePoint, ymin=d2[,1]-d2[,2], ymax=d2[,1]+d2[,2]), width=0.2, size=1, color="red", position=pd) +
+    xlab('Time Point') +
+    ylab('P210')
+
+ggsave("ggplot.pdf")
+
