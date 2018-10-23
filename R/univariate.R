@@ -4,6 +4,7 @@
 # Created on: 9/10/2018
 
 library(ggfortify)
+library(ggplot2)
 
 source("functions.R")
 
@@ -124,32 +125,44 @@ for(i in 1:length(tp_levs)) {
 t_tp_RegA_means <- t(tp_RegA_means)
 t_tp_RegA_stdevs <- t(tp_RegA_stdevs)
 # Combine data for RegA P210
-d <- cbind(t_tp_RegA_means[,1], t_tp_RegA_stdevs[,1])
-colnames(d) <- c("Mean", "SD")
+d1 <- cbind(t_tp_RegA_means[,1], t_tp_RegA_stdevs[,1])
+colnames(d1) <- c("mean", "sd")
 
 t_tp_RegB_means <- t(tp_RegB_means)
 t_tp_RegB_stdevs <- t(tp_RegB_stdevs)
 # Combine data for RegB P210
 d2 <- cbind(t_tp_RegB_means[,1], t_tp_RegB_stdevs[,1])
-colnames(d2) <- c("Mean", "SD")
+colnames(d2) <- c("mean", "sd")
 
-# Plot line graph with points
-TimePoint <- factor(rownames(t_tp_RegA_means), level = c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24"))
-P210_regA <- t_tp_RegA_means[,1]
-P210_regB <- t_tp_RegB_means[,1]
+regimen <- c(rep("A", 8), rep("B", 8))
+regimen <- factor(regimen, labels=c("A", "B"))
 
-# The errorbars overlapped, so use position_dodge to move them horizontally
-pd <- position_dodge(0.1) # move them .05 to the left and right
+tp <- c(0, 1, 4, 5, 8, 12, 16, 24, 0, 1, 4, 5, 8, 12, 16, 24)
+tp <- factor(tp, labels=c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24"))
 
-ggplot() +
-    geom_line(data=d, aes(x=TimePoint, y=d[,1]), color="blue", group=1) +
-    geom_point(data=d, mapping=aes(x=TimePoint, y=d[,1]), size=4, shape=21, fill="white", color="blue") +
-    geom_errorbar(data=d, mapping=aes(x=TimePoint, ymin=d[,1]-d[,2], ymax=d[,1]+d[,2]), width=0.2, size=1, color="blue", position=pd) +
-    geom_line(data=d2, aes(x=TimePoint, y=d2[,1]), color="red", group=2) +
-    geom_point(data=d2, mapping=aes(x=TimePoint, y=d2[,1]), size=4, shape=21, fill="white", color="red") +
-    geom_errorbar(data=d2, mapping=aes(x=TimePoint, ymin=d2[,1]-d2[,2], ymax=d2[,1]+d2[,2]), width=0.2, size=1, color="red", position=pd) +
+d <- rbind(d1, d2)
+rownames(d) <- 1:nrow(d)
+d <- data.frame(tp, d, regimen)
+
+# Errorbars overlap so use position_dodge to move them horizontally
+pd <- position_dodge(0.1)  # Move them .05 to the left and right
+
+ggplot(d, aes(x=tp, y=mean, color=regimen, group=regimen)) +
+    geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), color="black", width=.1, position=pd) +
+    geom_line(position=pd) +
+    geom_point(position=pd, size=3, shape=21, fill="white") +
     xlab('Time Point') +
-    ylab('P210')
+    ylab('P210') +
+    scale_colour_hue(name="Regimen",        # Legend label, use darker colors
+    breaks=c("A", "B"),
+    labels=c("A", "B"),
+    l=40) +                                 # Use darker colors, lightness=40
+    ggtitle("Compare regimens A and B") +
+    expand_limits(y=0.055) +                # Expand y range
+    scale_y_continuous(breaks=0:20*4) +     # Set tick every 4
+    theme_bw() +
+    theme(legend.justification=c(1,0),
+    legend.position=c(1,0))                 # Position legend in bottom right
 
 ggsave("ggplot.pdf")
 
