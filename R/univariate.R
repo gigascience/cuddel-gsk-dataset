@@ -68,28 +68,16 @@ tp_levs <- tp_levs[2:length(tp_levs)]
 # Transpose
 t_pos_dataMatrix <- t(pos_dataMatrix)
 
-# Create matrices to hold TP data for regimens A and B - 23 rows * 8 TP levels
-tp_RegA_means <- matrix(0, nrow=23, ncol=8)
-colnames(tp_RegA_means) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
-rownames(tp_RegA_means) <- colnames(t_pos_dataMatrix)
+# Create 5 matrices to hold results from analysis of regimens A and B - 23 rows * 8 TP levels
+matrix_names <- c("tp_RegA_means", "tp_RegA_stdevs", "tp_RegB_means", "tp_RegB_stdevs", "tp_pvalues")
+for(i in 1:length(matrix_names)) {
+    m <- matrix(0, nrow=23, ncol=8)
+    colnames(m) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
+    rownames(m) <- colnames(t_pos_dataMatrix)
+    assign(matrix_names[i], m)
+}
 
-tp_RegA_stdevs <- matrix(0, 23, 8)
-colnames(tp_RegA_stdevs) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
-rownames(tp_RegA_stdevs) <- colnames(t_pos_dataMatrix)
-
-tp_RegB_means <- matrix(0, 23, 8)
-colnames(tp_RegB_means) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
-rownames(tp_RegB_means) <- colnames(t_pos_dataMatrix)
-
-tp_RegB_stdevs <- matrix(0, 23, 8)
-colnames(tp_RegB_stdevs) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
-rownames(tp_RegB_stdevs) <- colnames(t_pos_dataMatrix)
-
-tp_pvalues <- matrix(0, 23, 8)
-colnames(tp_pvalues) <- c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24")
-rownames(tp_pvalues) <- colnames(t_pos_dataMatrix)
-
-# Loop over timepoint levels
+# Loop over timepoint levels to add data into 5 matrices
 for(i in 1:length(tp_levs)) {
     # Extract sample IDs data based on timepoint 5
     tp_sample_meta <- pos_sampleMetadata[pos_sampleMetadata[, "timepoint"] == tp_levs[i], ]
@@ -122,32 +110,53 @@ for(i in 1:length(tp_levs)) {
     }
 }
 
-t_tp_RegA_means <- t(tp_RegA_means)
-t_tp_RegA_stdevs <- t(tp_RegA_stdevs)
-# Combine data for RegA P210
-d1 <- cbind(t_tp_RegA_means[,1], t_tp_RegA_stdevs[,1])
-colnames(d1) <- c("mean", "sd")
+# Transform data into tidyr format for plotting as line graph using ggplot2
+tidyr_data <- data.frame(peak=character(), regimen=character(), tp=character(), mean=numeric(), sd=numeric(), stringsAsFactors=FALSE)
 
-t_tp_RegB_means <- t(tp_RegB_means)
-t_tp_RegB_stdevs <- t(tp_RegB_stdevs)
-# Combine data for RegB P210
-d2 <- cbind(t_tp_RegB_means[,1], t_tp_RegB_stdevs[,1])
-colnames(d2) <- c("mean", "sd")
+for(i in 1:length(rownames(tp_RegA_means))) {
+    peak_name <- rownames(tp_RegA_means)[i]
 
-regimen <- c(rep("A", 8), rep("B", 8))
-regimen <- factor(regimen, labels=c("A", "B"))
+    for(x in 1:length(colnames(tp_RegA_means))) {
+        newRow <- data.frame(peak=peak_name, regimen="A", timepoint=colnames(tp_RegA_means)[x], mean=tp_RegA_means[i, x], sd=tp_RegA_stdevs[i, x])
+        tidyr_data <- rbind(tidyr_data, newRow)
+    }
+}
 
-tp <- c(0, 1, 4, 5, 8, 12, 16, 24, 0, 1, 4, 5, 8, 12, 16, 24)
-tp <- factor(tp, labels=c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24"))
+for(i in 1:length(rownames(tp_RegB_means))) {
+    peak_name <- rownames(tp_RegB_means)[i]
 
-d <- rbind(d1, d2)
-rownames(d) <- 1:nrow(d)
-d <- data.frame(tp, d, regimen)
+    for(x in 1:length(colnames(tp_RegB_means))) {
+        newRow <- data.frame(peak=peak_name, regimen="B", timepoint=colnames(tp_RegB_means)[x], mean=tp_RegB_means[i, x], sd=tp_RegA_stdevs[i, x])
+        tidyr_data <- rbind(tidyr_data, newRow)
+    }
+}
 
-# Errorbars overlap so use position_dodge to move them horizontally
+# t_tp_RegA_means <- t(tp_RegA_means)
+# t_tp_RegA_stdevs <- t(tp_RegA_stdevs)
+# # Combine data for RegA P210
+# d1 <- cbind(t_tp_RegA_means[,1], t_tp_RegA_stdevs[,1])
+# colnames(d1) <- c("mean", "sd")
+#
+# t_tp_RegB_means <- t(tp_RegB_means)
+# t_tp_RegB_stdevs <- t(tp_RegB_stdevs)
+# # Combine data for RegB P210
+# d2 <- cbind(t_tp_RegB_means[,1], t_tp_RegB_stdevs[,1])
+# colnames(d2) <- c("mean", "sd")
+#
+# regimen <- c(rep("A", 8), rep("B", 8))
+# regimen <- factor(regimen, labels=c("A", "B"))
+#
+# tp <- c(0, 1, 4, 5, 8, 12, 16, 24, 0, 1, 4, 5, 8, 12, 16, 24)
+# tp <- factor(tp, labels=c("TP0", "TP1", "TP4", "TP5", "TP8", "TP12", "TP16", "TP24"))
+#
+# d <- rbind(d1, d2)
+# rownames(d) <- 1:nrow(d)
+# d <- data.frame(tp, d, regimen)
+
+# Error bars overlap so use position_dodge to move them horizontally
 pd <- position_dodge(0.1)  # Move them .05 to the left and right
 
-ggplot(d, aes(x=tp, y=mean, color=regimen, group=regimen)) +
+p1 <- ggplot(d, aes(x=tp, y=mean, color=regimen, group=regimen)) +
     geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), color="black", width=.1, position=pd) +
     geom_line(position=pd) +
     geom_point(position=pd, size=3, shape=21, fill="white") +
@@ -165,4 +174,3 @@ ggplot(d, aes(x=tp, y=mean, color=regimen, group=regimen)) +
     legend.position=c(1,0))                 # Position legend in bottom right
 
 ggsave("ggplot.pdf")
-
