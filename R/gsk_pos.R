@@ -29,18 +29,10 @@ output_path <- paste(pos_dir, "/output", sep="")
 # Read in metadata for data analysis #
 ######################################
 
-# Read in and sort metadata files
-meta <- read.csv(paste(datadir, "gsk/meta/meta_20180831.csv", sep=""))
-meta <- meta[naturalorder(meta$file_name_pos), ]
-meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
-meta_all <- meta_all[naturalorder(meta_all$file_name_pos), ]
-
-# Get list of positive file paths
+# Get list of negative file paths
 pos_file_paths <- getAllGSKFilePaths(mode="positive")
-
-# Get list of positive files
-pos_files <- meta[, "file_name_pos"]
-pos_files <- as.character(pos_files)
+# Get list of negative QC and plasma sample names
+pos_files <- getAllQCPlasmaSampleNames(mode="positive")
 
 
 ######################################

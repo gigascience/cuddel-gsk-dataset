@@ -34,6 +34,22 @@ getFileNameColumn <- function(mode="negative") {
     return(colname)
 }
 
+#' getAllQCPlasmaSampleNames
+#'
+#' Returns a vector containing all the names of QC and plasma samples file paths
+#' measured in positive or negative ionisation mode.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return sample_names. A vector containing QC and plasma sample names for
+#' negative or positive samples.
+getAllQCPlasmaSampleNames <- function(mode="negative") {
+    if (mode == "positive") {
+        colname <- "file_name_pos"
+    }
+    sample_names <- meta_all[, colname]
+    sample_names <- as.character(sample_names)
+    return(sample_names)
+}
+
 #' getGSKFilePath
 #'
 #' Returns the file path for a given sample measured in negative or positive

@@ -29,18 +29,10 @@ output_path <- paste(neg_dir, "/output", sep="")
 # Read in metadata for data analysis #
 ######################################
 
-# Read in and sort metadata files
-meta <- read.csv(paste(datadir, "gsk/meta/meta_20180831.csv", sep=""))
-meta <- meta[naturalorder(meta$file_name_neg), ]
-meta_all <- read.csv(paste(datadir, "gsk/meta/meta_all_20180831.csv", sep=""))
-meta_all <- meta_all[naturalorder(meta_all$file_name_neg), ]
-
 # Get list of negative file paths
 neg_file_paths <- getAllGSKFilePaths(mode="negative")
-
-# Get list of negative files
-neg_files <- meta_all[,"file_name_neg"]
-neg_files <- as.character(neg_files)
+# Get list of negative QC and plasma sample names
+neg_files <- getAllQCPlasmaSampleNames(mode="negative")
 
 
 ######################################
@@ -65,7 +57,7 @@ neg_peaklist <- neg_peaklist[, c(ncol(neg_peaklist), 1:(ncol(neg_peaklist)-1))]
 # Output neg_peaklist data
 write.table(
     neg_peaklist,
-    file = paste(output_path, "/xcms_neg_peaklist.csv", sep=""),
+    file = paste0(output_path, "/xcms_neg_peaklist.csv"),
     sep=",",
     row.names=TRUE,
     col.names=TRUE)
@@ -75,7 +67,7 @@ write.table(
 # Load saved peak list data #
 #############################
 
-neg_peaklist = read.csv(paste(output_path, "/xcms_neg_peaklist.csv", sep=""))
+neg_peaklist = read.csv(paste0(output_path, "/xcms_neg_peaklist.csv"))
 
 
 #################################################
