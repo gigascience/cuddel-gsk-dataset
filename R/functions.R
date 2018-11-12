@@ -178,6 +178,24 @@ getQCSampleNames <- function(mode="negative") {
     return(qc_names)
 }
 
+#' getQCSampleNamesByBlock
+#'
+#' Returns a vector of QC sample names for a given block which have been
+#' measured in negative or positive ionization mode in the GSK longitudinal data
+#' set.
+#' @author Peter Li <peter@gigasciencejournal.com>
+#' @return plasma_names. A vector containing a list of negative or positive
+#' QC sample names for a given block.
+getQCSampleNamesByBlock <- function(mode="negative", block="1") {
+    col_name <- getFileNameColumn(mode)
+    # Get data associated for specified block
+    block_data <- meta[meta[, "block"] == block, ]
+    # Get QC sample names from block_data
+    qc_names <- block_data[block_data[, "type"] == 'QC', col_name]
+    qc_names <- as.character(qc_names)
+    return(qc_names)
+}
+
 #' getNumberOfQCs
 #'
 #' Returns the total number of QCs measured in negative or positive ionization

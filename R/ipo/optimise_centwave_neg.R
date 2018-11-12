@@ -93,16 +93,11 @@ source('functions.R')
 ################ Basic user begin editing here #############
 # ******************************************************************
 
-# Use functions.R to specify negative QC files for IPO to use
-neg_qc_sample_names <- getQCSampleNames()
-neg_qc_files <- lapply(neg_qc_sample_names, getGSKFilePath)
-neg_qc_files <- unlist(neg_qc_files)
-
 # User: define locations of data files
 wd <- "/home/peter/gsk/raw/esi_neg/netcdf/"
 setwd(wd)
 
-# Specify directories subordinate to the working directory in which the .mzXML
+# Specify directories subordinate to the working directory in which the input
 # files for xcms can be found; per xcms documentation, use subdirectories within
 # these to divide files according to treatment/primary environmental variable
 # (e.g., station number along a cruise transect) and file names to indicate
@@ -110,22 +105,29 @@ setwd(wd)
 block_dirs <- c("block1neg/", "block2neg/", "block3neg", "block4neg")
 
 # Specify which of the directories above you wish to analyze this time through
-chosenFileSubset = "Pt_H2O2_mzXML_ms1_pos/"
+chosenFileSubset <- "block1neg"
 
-# Specify files you don't want to push through xcms (e.g., blanks)
-excluded_files = c("0475", "0474")
+# Specify files not to be processed by xcms, e.g. blanks, plasma samples
+plasma_samples <- getPlasmaSampleNames()
+plasma_sample_files <- paste0(plasma_samples, ".cdf")
+excluded_files = plasma_sample_files
 
 # If planning to use IPO, specify the ID numbers (i.e., Orbi_xxxx.mzXML) of the
 # files you'd like to use for optimization; otherwise, IPO will try to use the
 # entire dataset and you'll probably wind up with errors
-IPO.filesubset = c("0468", "0476", "0477")
+IPO.filesubset = getQCSampleNamesByBlock(mode="negative", block="1")
+# Restrict to first 10 QC files
+IPO.filesubset <- IPO.filesubset[1:10]
 
 # If you aren't planning on running IPO to optimize centWave and/or group/retcor
 # parameters this session, but you have some parameter values from an earlier
 # IPO run saved in a .csv file, you can specify the file paths below. you will
 # still be given the option later to choose which parameters to use.
-saved_IPO_params_centW = "IPO_xcmsparamfits_2018-11-09T18-36-10-0300.csv"
-saved_IPO_params_groupretcor = "IPO_retcorGroupparamfits_2018-11-09T18-36-10-0300.csv"
+date_time <- paste(format(Sys.time(), "%Y-%m-%dT%H:%M"), "csv", sep = ".")
+saved_IPO_params_centW = "IPO_xcmsparamfits_"
+saved_IPO_params_centW <- paste0(saved_IPO_params_centW, date_time)
+saved_IPO_params_groupretcor = "IPO_retcorGroupparamfits_"
+saved_IPO_params_groupretcor <- paste0(saved_IPO_params_groupretcor, date_time)
 
 # Specify which xcms centWave parameter values to use, and whether to run IPO
 
@@ -239,28 +241,25 @@ if (!exists("block_dirs")) {
 }
 
 ################# Load in mzXML files, get xcms settings from IPO or user input #############
-# load selected subset for processing
-mzXMLfiles.raw = list.files(chosenFileSubset, recursive = TRUE, full.names = TRUE)
-# verify the ion mode of the data in these files
-subset.polarity = getSubsetIonMode(mzXMLfiles.raw)
-# provide some feedback to user
+# Load selected subset for processing
+cdf_files <- list.files(chosenFileSubset, pattern="*cdf", recursive = TRUE, full.names = TRUE)
+# Provide feedback to user
 print(paste0("Loaded ",
-    length(mzXMLfiles.raw),
-    " mzXML files. These files contain ",
-    subset.polarity," ion mode data. Raw dataset consists of:"))
+    length(cdf_files),
+    " CDF files. Raw dataset consists of:"))
 
-print(mzXMLfiles.raw)
+print(cdf_files)
 
-# check whether user has elected to exclude any files, and exclude them if they happen to be in this subset
+# Check whether user has elected to exclude any files, and exclude them if they happen to be in this subset
 if (exists("excluded_files") & length("excluded_files")>0) {
-    # index files to be excluded
-    excludedfiles <- getFNmatches(IDnumlist = excluded_files, filelist = mzXMLfiles.raw)
+    # Index files to be excluded
+    excludedfiles <- getFNmatches(IDnumlist = excluded_files, filelist = cdf_files)
     print(paste0("The following files will be excluded from processing based on user's input:"))
-    print(mzXMLfiles.raw[excludedfiles])
-    # exclude the files from mzXMLfiles
-    mzXMLfiles = mzXMLfiles.raw[-excludedfiles]
+    print(cdf_files[excludedfiles])
+    # Exclude files from files to be processed
+    cdf_files <- cdf_files[-excludedfiles]
 } else {
-    mzXMLfiles = mzXMLfiles.raw
+    ipo_input_files <- cdf_files
 }
 
 
@@ -269,16 +268,17 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     # Define ranges of parameters for testing. If a single value is specified
     # or centWave default is used, parameter will not be optimized
     peakpickingParameters <- getDefaultXcmsSetStartingParams('centWave')  # get defaults
-    peakpickingParameters$min_peakwidth <- c(7.5) # centerpoint is 15
-    peakpickingParameters$max_peakwidth <- c(26) # centerpoint is 60
+    # Configure parameters for optimisation specific for Orbitrap data
+    peakpickingParameters$min_peakwidth <- c(3, 10)
+    peakpickingParameters$max_peakwidth <- c(15, 30)
     # Set ppm low to avoid peak data insertion errors from centWave; IPO wants
     # to use something like 5.5 ppm if you allow it to "optimize," but this is
     # too high. Jan Stanstrup says ppm = 20 for orbitrap data, see:
     # http://www.metabolomics-forum.com/index.php?topic=1246.0
     peakpickingParameters$ppm <- c(20)  # Was originally 2.5 in this script
-    # A very long optimization routine settled on a value of 2.4 for prefilter
+    # A long optimization routine settled on a value of 2.4 for prefilter
     peakpickingParameters$prefilter <- 3
-    peakpickingParameters$value_of_prefilter <- c(100, 5000)
+    peakpickingParameters$value_of_prefilter <- c(100, 1000)
     peakpickingParameters$snthresh <- c(10)
     peakpickingParameters$noise <- c(500)
 
@@ -286,15 +286,15 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
 
     if (exists("IPO.filesubset") & length("IPO.filesubset")>0) {
         # Get indexes to subset
-        IPOsubset <- mzXMLfiles[getFNmatches(IDnumlist = IPO.filesubset, filelist = mzXMLfiles)]
+        IPOsubset <- cdf_files[getFNmatches(IDnumlist = IPO.filesubset, filelist = cdf_files)]
         print(IPOsubset)
     } else {
         print(paste0("User did not specify a subset of files for IPO optimization."))
         print(paste0("Defaulting to all files in the current dataset. This will take long time and may yield errors."))
-        IPOsubset <- mzXMLfiles
+        IPOsubset <- cdf_files
     }
 
-    resultPeakpicking <- optimizeXcmsSet(files=neg_qc_files[1:5],
+    resultPeakpicking <- optimizeXcmsSet(files=ipo_input_files[1:5],
         params=peakpickingParameters,
         BPPARAM = MulticoreParam(workers = detectCores()),
         subdir=NULL)
@@ -340,7 +340,7 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     # mzCenterFun, integrate, fitgauss, verbose.columns, nSlaves since those
     # weren't targets of optimization
 
-} else if (centWparam.source==2) { # user wants to use settings specified below
+} else if (centWparam.source==2) { # User wants to use settings specified below
 
     print(paste0("Using values of centWave parameters specified in the script by user..."))
 
@@ -349,22 +349,19 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     # "Meta-analysis of untargeted metabolomic data from multiple profiling
     # experiment," Nature Protocols 7: 508-516
 
-    centW.min_peakwidth <- 10
-    # lowered from Patti et al. recommended HPLC setting of 60 based on visual
-    # inspection of a single sample with plotPeaks
-    centW.max_peakwidth <- 45
-    centW.ppm <- 2.5
-    centW.mzdiff <- 0.005
-    centW.snthresh <- 10
-    centW.prefilter <- c(3,7500) # 3.5k recommended by Patti et al. appears to be too low
-    centW.noise <- 500
+    centW.min_peakwidth <- 7
+    centW.max_peakwidth <- 26
+    centW.ppm           <- 20
+    centW.mzdiff        <- 0.02
+    centW.snthresh      <- 10
+    centW.prefilter     <- c(3,5000)
+    centW.noise         <- 500
 
-} else if (centWparam.source==3) { # user wants to read in parameter values from file
-
+} else if (centWparam.source==3) { # User wants to read in parameter values from file
     print(paste0("Loading values of centWave parameters from previous IPO optimization run in .csv file:"))
     print(paste0(saved_IPO_params_centW))
 
-    centWprams.from.file = read.csv(saved_IPO_params_centW,colClasses = "character")
+    centWprams.from.file = read.csv(saved_IPO_params_centW, colClasses = "character")
 
     centW.min_peakwidth <- as.numeric(centWprams.from.file[centWprams.from.file[,1]=="min_peakwidth",2])
     centW.max_peakwidth <- as.numeric(centWprams.from.file[centWprams.from.file[,1]=="max_peakwidth",2])
@@ -373,24 +370,23 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     centW.snthresh      <- as.numeric(centWprams.from.file[centWprams.from.file[,1]=="snthresh",2])
     centW.prefilter     <- c(as.numeric(centWprams.from.file[centWprams.from.file[,1]=="prefilter",2]),as.numeric(centWprams.from.file[centWprams.from.file[,1]=="value_of_prefilter",2]))
     centW.noise         <- as.numeric(centWprams.from.file[centWprams.from.file[,1]=="noise",2])
-
 }
 
-# specify some additional settings we wish to keep constant, regardless of where
+# Specify some additional settings we wish to keep constant, regardless of where
 # the parameters above were obtained
-centW.fitgauss = TRUE
-centW.sleep = 1
-centW.mzCenterFun = c("wMean")
-centW.verbose.columns = TRUE
-centW.integrate = 1
-# setting this very low, per Jan Stanstrup; low setting uses more memory but
+centW.fitgauss <- TRUE
+centW.sleep <- 1
+centW.mzCenterFun <- c("wMean")
+centW.verbose.columns <- TRUE
+centW.integrate <- 1
+# Setting this very low, per Jan Stanstrup; low setting uses more memory but
 # helps avoid the situation where mass accuracy eclipses the actual width of the
 # m/z windows used to define each peak (a real possibility with Orbitrap data;
 # see http://metabolomics-forum.com/viewtopic.php?f=8&t=598#p1853)
-centW.profparam = list(step=0.001)
-# if you have r package "snow" installed, can set to number of cores you wish to
-# make use of
-centW.nSlaves = 4
+centW.profparam <- list(step=0.001)
+# If you have the snow R package installed, you can set to number of cores you
+# wish to make use of. Using detectCores() to det this parameter.
+centW.nSlaves = detectCores()
 
 # ################# Peak visualization using individual sample files #############
 
