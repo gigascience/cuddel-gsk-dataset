@@ -1,0 +1,16 @@
+"centWave_parameter","IPO_optim_value","Starting_value(s)"
+"fitgauss","FALSE","FALSE"
+"integrate","1","1"
+"max_peakwidth","26","26"
+"min_peakwidth","8.84","c(6, 8)"
+"mzCenterFun","wMean","wMean"
+"mzdiff","0.0298","c(-0.001, 0.01)"
+"noise","500","500"
+"ppm","20","20"
+"prefilter","3","3"
+"snthresh","10","10"
+"value_of_prefilter","491","491"
+"verbose.columns","FALSE","FALSE"
+"Files_used_for_optimization","block1neg/GSK_neg_block1_09r.cdf, block1neg/GSK_neg_block1_101r.cdf, block1neg/GSK_neg_block1_102r.cdf, block1neg/GSK_ne
+g_block1_10r.cdf, block1neg/GSK_neg_block1_16r.cdf, block1neg/GSK_neg_block1_21r.cdf, block1neg/GSK_neg_block1_26r.cdf, block1neg/GSK_neg_block1_31r.cd
+f, block1neg/GSK_neg_block1_36r.cdf, block1neg/GSK_neg_block1_41r.cdf",""
