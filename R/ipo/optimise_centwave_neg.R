@@ -52,7 +52,7 @@ source('functions.R')
 #### Basic user begin editing here ####
 #######################################
 
-# User: define locations of data files
+# Define location of data files for processing
 wd <- "/home/peter/gsk/raw/esi_neg/netcdf/"
 setwd(wd)
 
@@ -64,19 +64,27 @@ setwd(wd)
 block_dirs <- c("block1neg/", "block2neg/", "block3neg", "block4neg")
 
 # Specify which of the directories above you wish to analyze this time through
-chosenFileSubset <- "block1neg"
+# chosenFileSubset <- "block1neg"
+chosenFileSubset <- c("block1neg", "block2neg", "block3neg", "block4neg")
 
-# Specify files not to be processed by xcms, e.g. plasma samples
-plasma_samples <- getPlasmaSampleNames()
-plasma_sample_files <- paste0(plasma_samples, ".cdf")
-excluded_files <- plasma_sample_files
+# Specify files not to be processed by xcms, e.g. blanks. Don't think this is
+# required for GSK work
+# plasma_samples <- getPlasmaSampleNames()
+# plasma_sample_files <- paste0(plasma_samples, ".cdf")
+# excluded_files <- plasma_sample_files
 
 # If planning to use IPO, specify the ID numbers of the files for use in
 # optimization; otherwise, IPO will try to use the entire dataset which might
 # cause errors
 IPO.filesubset = getQCSampleNamesByBlock(mode="negative", block="1")
-# Restrict IPO to first 10 QC files
-IPO.filesubset <- IPO.filesubset[1:10]
+# # Restrict IPO to first 10 QC files
+# IPO.filesubset <- IPO.filesubset[1:10]
+# Get 2 QC sample files from each of the 4 blocks
+IPO.filesubset <- c("GSK_neg_block1_09r", "GSK_neg_block1_10r",
+    "GSK_neg_block2_09r", "GSK_neg_block2_10r",
+    "GSK_neg_block3_09", "GSK_neg_block3_10",
+    "GSK_neg_block4_09", "GSK_neg_block4_10")
+IPO.filesubset <- paste0(IPO.filesubset, ".cdf")
 
 # If you aren't planning on running IPO to optimize centWave and/or group/retcor
 # parameters this session, but you have some parameter values from an earlier
@@ -120,6 +128,8 @@ retcor.meth <- "loess"
 #'
 #' Returns index(es) of file names in a given file list containing the ID
 #' numbers in a match list.
+#' If you have a file names as GSK_neg_block3_10 then this function will pick
+#' GSK_neg_block3_101.cdf which is a bug!!!
 getFNmatches = function(filelist, IDnumlist) {
     unique(grep(paste(IDnumlist, collapse="|"), filelist, value=FALSE))
 }
@@ -146,21 +156,17 @@ cdf_files <- list.files(chosenFileSubset, pattern="*cdf", recursive = TRUE, full
 print(paste0("Loaded ",
     length(cdf_files),
     " CDF files. Raw dataset consists of:"))
-
 print(cdf_files)
 
-# Check whether user has elected to exclude any files, and exclude them if they
-# happen to be in this subset
+# Check if any files have been excluded and exclude them if they happen to be in
+# this subset from being processed by XCMS
 if (exists("excluded_files") & length("excluded_files")>0) {
     # Index files to be excluded
     excludedfiles <- getFNmatches(IDnumlist = excluded_files, filelist = cdf_files)
-    print(paste0("The following files will be excluded from processing based on user's input:"))
+    print(paste0("Files excluded from processing based on user's input:"))
     print(cdf_files[excludedfiles])
     # Exclude files from files to be processed
     cdf_files <- cdf_files[-excludedfiles]
-    ipo_input_files <- cdf_files
-} else {
-    ipo_input_files <- cdf_files
 }
 
 #################################################
@@ -172,8 +178,8 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     # or centWave default is used, parameter will not be optimized
     peakpickingParameters <- getDefaultXcmsSetStartingParams('centWave')
     # Configure parameters for optimisation specific for Orbitrap data
-    peakpickingParameters$min_peakwidth <- c(6, 8)
-    peakpickingParameters$max_peakwidth <- c(26)
+    peakpickingParameters$min_peakwidth <- c(6, 10)
+    peakpickingParameters$max_peakwidth <- c(25, 30)
     # peakpickingParameters$min_peakwidth <- c(3, 10)
     # peakpickingParameters$max_peakwidth <- c(15, 30)
     # Set ppm low to avoid peak data insertion errors from centWave; IPO wants
@@ -183,8 +189,8 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     peakpickingParameters$ppm <- c(20)  # Was originally 2.5 in this script
     # A long optimization routine settled on a value of 2.4 for prefilter
     peakpickingParameters$prefilter <- 3
-    peakpickingParameters$value_of_prefilter <- c(491)
-    # peakpickingParameters$value_of_prefilter <- c(100, 1000)
+    # peakpickingParameters$value_of_prefilter <- c(491)
+    # peakpickingParameters$value_of_prefilter <- c(400, 600)
     peakpickingParameters$snthresh <- c(10)
     peakpickingParameters$noise <- c(500)
 
@@ -200,20 +206,19 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
         IPOsubset <- cdf_files
     }
 
-    resultPeakpicking <- optimizeXcmsSet(files=ipo_input_files[1:5],
+    resultPeakpicking <- optimizeXcmsSet(files=IPOsubset,
         params=peakpickingParameters,
         BPPARAM=MulticoreParam(workers = detectCores()),
         # Need to set nSlaves or get error message: "IPO (nSlaves-argument) and
         # xcms (BPPARAM-argument) parallelisation cannot be used together"
-        nSlaves=1,
+        # nSlaves=1,
         subdir=NULL)
 
     optimizedXcmsSetObject <- resultPeakpicking$best_settings$xset
 
-    ############################################################################
-    #### Export IPO starting values and optimal settings for each parameter ####
-    #### to .csv                                                            ####
-    ############################################################################
+    ###########################################################################
+    #### Export IPO starting and optimal values for each parameter to .csv ####                                                           ####
+    ###########################################################################
 
     # Write 3-column table to .csv using write.table()
     peakpicking.exportmat <- cbind(sort(rownames(as.matrix(peakpickingParameters))),
@@ -223,9 +228,7 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     # Append an additional row with the file names of the files used for
     # optimization
     peakpicking.exportmat <- rbind(peakpicking.exportmat,
-        c("Files_used_for_optimization",
-        paste(IPOsubset, collapse = ", "),
-        ""))
+        c("Files_used_for_optimization", paste(IPOsubset, collapse=", "), ""))
 
     timestamp.now <- print(genTimeStamp())
 
@@ -236,7 +239,8 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
         sep=",")
 
     print(paste0("IPO optimization complete. Optimized and starting values for"))
-    print(paste0("centWave parameters written to file: IPO_centWaveparamfits_", timestamp.now,".csv"))
+    print(paste0("centWave parameters written to file: IPO_centWaveparamfits_",
+        timestamp.now,".csv"))
 
     # Use the just-obtained optimized parameter values for xcmsSet creation
     print(paste0("Using IPO-optimized settings for findPeaks.centWave..."))
@@ -245,7 +249,8 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     centW.ppm           <- resultPeakpicking$best_settings$parameters$ppm
     centW.mzdiff        <- resultPeakpicking$best_settings$parameters$mzdiff
     centW.snthresh      <- resultPeakpicking$best_settings$parameters$snthresh
-    centW.prefilter     <- c(resultPeakpicking$best_settings$parameters$prefilter, resultPeakpicking$best_settings$parameters$value_of_prefilter)
+    centW.prefilter     <- c(resultPeakpicking$best_settings$parameters$prefilter,
+        resultPeakpicking$best_settings$parameters$value_of_prefilter)
     centW.noise         <- resultPeakpicking$best_settings$parameters$noise
 
     # Not using IPO settings from resultPeakpicking$best_settings$parameters for
@@ -268,7 +273,6 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
     print(paste0(saved_IPO_params_centW))
 
     centWprams.from.file <- read.csv(saved_IPO_params_centW, colClasses = "character")
-
     centW.min_peakwidth <- as.numeric(centWprams.from.file[centWprams.from.file[, 1]=="min_peakwidth", 2])
     centW.max_peakwidth <- as.numeric(centWprams.from.file[centWprams.from.file[, 1]=="max_peakwidth", 2])
     centW.ppm           <- as.numeric(centWprams.from.file[centWprams.from.file[, 1]=="ppm", 2])
