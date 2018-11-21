@@ -21,7 +21,8 @@ time.xcmsSet <- system.time({ # measuring time
     resultPeakpicking <-
         optimizeXcmsSet(files = datafiles[1:2],
         params = peakpickingParameters,
-        nSlaves = 1,
+        BPPARAM=bpparam(),
+        nSlaves = 0,  # nSlaves set to 0 to stop IPO nSlaves and xcms BPPARAM conflict
         subdir = NULL,
         plot = TRUE)
 })
@@ -33,7 +34,8 @@ retcorGroupParameters$gapExtend <- 2.7
 time.RetGroup <- system.time({ # measuring time
     resultRetcorGroup <- optimizeRetGroup(xset = optimizedXcmsSetObject,
         params = retcorGroupParameters,
-        nSlaves = 1,
+        BPPARAM=bpparam(),
+        nSlaves = 0,
         subdir = NULL,
         plot = TRUE)
     })

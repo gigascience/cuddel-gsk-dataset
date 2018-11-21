@@ -208,10 +208,11 @@ if (centWparam.source==1) {  # Use IPO to optimize settings for centWave method
 
     resultPeakpicking <- optimizeXcmsSet(files=IPOsubset,
         params=peakpickingParameters,
-        BPPARAM=MulticoreParam(workers = detectCores()),
-        # Need to set nSlaves or get error message: "IPO (nSlaves-argument) and
+        # BPPARAM=MulticoreParam(workers = detectCores()),
+        BPPARAM=bpparam(),
+        # Set nSlaves = 0 or get error message: "IPO (nSlaves-argument) and
         # xcms (BPPARAM-argument) parallelisation cannot be used together"
-        # nSlaves=1,
+        nSlaves=0,
         subdir=NULL)
 
     optimizedXcmsSetObject <- resultPeakpicking$best_settings$xset
