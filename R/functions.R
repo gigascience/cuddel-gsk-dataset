@@ -7,10 +7,11 @@
 library(naturalsort)
 
 # Location of GSK data set
-datadir = "/home/peter/"
+# datadir = "/home/peter/"
+datadir = "/Users/peterli/"
 # File path for negative and positive files
-neg_dir = paste(datadir, "gsk/raw/esi_neg/netcdf", sep="")
-pos_dir = paste(datadir, "gsk/raw/esi_pos/netcdf", sep="")
+neg_dir = paste(datadir, "gsk/cdf/esi_neg/netcdf", sep="")
+pos_dir = paste(datadir, "gsk/cdf/esi_pos/netcdf", sep="")
 
 ######################################
 # Read in metadata for data analysis #
@@ -42,6 +43,7 @@ getFileNameColumn <- function(mode="negative") {
 #' @return sample_names. A vector containing QC and plasma sample names for
 #' negative or positive samples.
 getAllQCPlasmaSampleNames <- function(mode="negative") {
+    colname <- "file_name_neg"
     if (mode == "positive") {
         colname <- "file_name_pos"
     }
