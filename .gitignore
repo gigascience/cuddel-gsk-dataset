@@ -4,6 +4,9 @@
 *.RData
 *.Rhistory
 
+## Ignore pdf files which are results from R scripts
+R/centwave/*.pdf
+
 ### JetBrains template
 .idea/
 
