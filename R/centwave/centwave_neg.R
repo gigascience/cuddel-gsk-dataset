@@ -1,5 +1,5 @@
 # Title     : centwave_neg.R
-# Objective : TODO
+# Objective : Explore mass spectra using xcms and other mass spec R packages
 # Created by: peterli
 # Created on: 16/11/2018
 
@@ -107,6 +107,91 @@ pdf("./centwave/boxplot.pdf")
 boxplot(tc, col = group_colors[raw_data$sample_group], ylab = "intensity", main = "Total ion current")
 dev.off()
 
+# Need to get m/z against intensitity plot for a specific RT
+
+# List spectra
+spectra(raw_data)
+
+# Number of spectra
+length(spectra(raw_data))
+
+# Get second spectrum
+sp2 <- raw_data[[2]]
+
+# Get RT
+rtime(sp2)
+## [1] 0.5241
+
+# Plot spectrum which is a graph of m/z against signal intensity
+pdf("./centwave/spectrum.pdf")
+plot(sp2)
+dev.off()
+
+# Define mz and RT ranges to extract main peak from second spectrum
+pdf("./centwave/peak.pdf")
+peak <- filterMz(filterRt(raw_data, rt = c(0.5240, 0.5241)), mz = c(0, 125))
+# XIC displays a combined plot of RT vs m/z and RT vs largest signal in spectrum
+plot(peak, type="XIC")
+dev.off()
+
+# Zoom into a part of the above spectrum using above m/z and RT ranges
+pdf("./centwave/zoom_peak.pdf")
+plot(peak, centroided = TRUE)
+dev.off()
+
+####
+
+# Get metadata about spectra contained in files using header function
+hd <- header(raw_data)
+
+dim(hd)
+## [1] 31112    26
+
+# Extract metadata and scan data for scan 1000
+hd[1000, ]
+##      seqNum acquisitionNum msLevel polarity peaksCount totIonCurrent
+## 1000   1000           1000       1        0        417      24785388
+##      retentionTime basePeakMZ basePeakIntensity collisionEnergy
+## 1000       562.496   91.00389          14420198               0
+##      ionisationEnergy    lowMZ   highMZ precursorScanNum precursorMZ
+## 1000                0 52.33684 989.8309                0           0
+##      precursorCharge precursorIntensity mergedScan mergedResultScanNum
+## 1000               0                  0          0                   0
+##      mergedResultStartScanNum mergedResultEndScanNum injectionTime
+## 1000                        0                      0      59.42852
+##                              filterString
+## 1000 FTMS - c ESI Full ms [50.00-1000.00]
+##                                         spectrumId centroided
+## 1000 controllerType=0 controllerNumber=1 scan=1000       TRUE
+##      ionMobilityDriftTime
+## 1000                   NA
+
+# Extract spectra from scan 1000
+head(peaks(ms, 1000))
+## [,1]     [,2]
+## [1,] 52.33684 3490.230
+## [2,] 52.63135 3543.195
+## [3,] 53.25687 3011.438
+## [4,] 54.01475 3457.050
+## [5,] 54.73533 3067.098
+## [6,] 55.42279 3363.786
+
+# Plot peaks from scan 1000
+plot(peaks(ms, 1000), type = "h")
+
+# Plot specific set of mass spectra using mzR functions
+ms1 <- which(hd$msLevel == 1)
+# Specify we want spectra from compounds eluted between 30-35 minutes RT
+rtsel <- hd$retentionTime[ms1] / 60 > 20 & hd$retentionTime[ms1] / 60 < 22
+
+# The map
+M <- MSmap(ms, ms1[rtsel], 52, 53, .005, hd, zeroIsNA = TRUE)
+
+# Plot slice of data
+plot(M, aspect = 1, allTicks = FALSE)
+
+# Plot 3D graph of data slice
+plot3D(M)
 
 ########################################
 #### Chromatographic peak detection ####
