@@ -5,7 +5,7 @@
 *.Rhistory
 
 ## Ignore pdf files which are results from R scripts
-R/centwave/*.pdf
+R/centwave/output/*/*.pdf
 
 ### JetBrains template
 .idea/
