@@ -4,7 +4,7 @@ library(RColorBrewer)
 library(pander)
 library(magrittr)
 
-# Commands from https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html
+# XCMS tutorial from https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html
 
 #### Data import ####
 
@@ -364,7 +364,8 @@ par(mfrow = c(2, 1))
 plot(chr_raw, col = group_colors[chr_raw$sample_group])
 dev.off()
 
-## Extract the chromatogram from the adjusted object
+# Extract the chromatogram from the adjusted object. You will see that the
+# peaks from the different samples are now better aligned after RT adjustment.
 chr_adj <- chromatogram(xdata, rt = rtr, mz = mzr)
 pdf("output/test/single_peak_RTadjusted.pdf")
 plot(chr_adj, col = group_colors[chr_raw$sample_group])
@@ -376,36 +377,245 @@ dev.off()
 ########################
 
 # Correspondence matches peaks between samples using groupChromPeaks function.
-# The peak density method [5] is used to group chromatographic peaks by
+# The peak density method is used to group chromatographic peaks by
 # combining chromatographic peaks depending on the density of peaks along the
 # retention time axis within small slices along the mz dimension
 
-# Plot a chromatogram for an mz slice with multiple chromatographic peaks within
-# each sample. We use below a value of 0.4 for the minFraction parameter hence
-# only chromatographic peaks present in at least 40% of the samples per sample
-# group are grouped into a feature. The sample group assignment is specified
-# with the sampleGroups argument.
+# Below, a chromatogram is plotted for an mz slice with multiple chromatographic
+# peaks within each sample. A value of 0.4 is used for the minFraction
+# parameter so only chromatographic peaks present in at least 40% of the
+# samples per sample group are grouped into a feature. The sample group
+# assignment is specified with the sampleGroups argument.
 # Define the mz slice.
 mzr <- c(305.05, 305.15)
 
-## Extract and plot the chromatograms
+# Extract and plot the chromatograms
+pdf("output/test/sample_eics.pdf")
 chr_mzr <- chromatogram(xdata, mz = mzr, rt = c(2500, 4000))
 par(mfrow = c(3, 1), mar = c(1, 4, 1, 0.5))
 cols <- group_colors[chr_mzr$sample_group]
-pdf("output/single_peak_RTadjusted.pdf")
 plot(chr_mzr, col = cols, xaxt = "n", xlab = "")
 dev.off()
-## Highlight the detected peaks in that region.
+
+# Highlight the detected peaks in that region
 highlightChromPeaks(xdata, mz = mzr, col = cols, type = "point", pch = 16)
-## Define the parameters for the peak density method
+
+# Define parameters for peak density method. If bw=30, peaks are combined
 pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
     minFraction = 0.4, bw = 30)
 par(mar = c(4, 4, 1, 0.5))
+
+pdf("output/test/RT_peaks_bw30.pdf")
 plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
     pch = 16, xlim = c(2500, 4000))
-## Use a different bw
+dev.off()
+
+## Using a different lower bw=20 value, the peaks are separated
 pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
     minFraction = 0.4, bw = 20)
+pdf("output/test/RT_peaks_bw20.pdf")
 plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
     pch = 16, xlim = c(2500, 4000))
+dev.off()
 
+# Perform correspondence
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+    minFraction = 0.4, bw = 20)
+xdata <- groupChromPeaks(xdata, param = pdp)
+
+# Extract feature definition results from correspondence using the
+# featureDefinitions method that returns a DataFrame with the definition of the
+# features (i.e. the mz and rt ranges and, in column peakidx, the index of the
+# chromatographic peaks in the chromPeaks matrix for each feature).
+featureDefinitions(xdata)
+
+# The featureValues method returns a matrix with rows being features and columns
+# samples. The content of this matrix can be defined using the value argument.
+# The default isvalue = "index" which simply returns the index of the peak (in
+# the chromPeaks matrix) assigned to a feature in a sample. Setting value =
+# "into" returns a matrix with the integrated signal of the peaks corresponding
+# to a feature in a sample. Any column name of the chromPeaks matrix can be
+# passed to the argument value. Below we extract the integrated peak intensity
+# per feature/sample.
+
+# Extract the into column for each feature.
+head(featureValues(xdata, value = "into"))
+##       ko15.CDF ko16.CDF ko18.CDF ko19.CDF ko21.CDF ko22.CDF wt15.CDF wt16.CDF
+## FT001  1924712  1757151  1714582  1220358  1383417  1180288  2129885  1634342
+## FT002   213659   289501   194604    92590       NA   178286   253826   241844
+## FT003   349011   451864   337473       NA   343898   208003   364610   360909
+## FT004   286221       NA   364300       NA   137261   149098   255698   311297
+## FT005   162905       NA   210000       NA   164009   111158       NA       NA
+## FT006  1160580       NA  1345515   608017   380970   300716  1286883  1739517
+##       wt18.CDF wt19.CDF wt21.CDF wt22.CDF
+## FT001  1810112  1507943  1623589  1354005
+## FT002   228501   216393   240606   185399
+## FT003    54567       NA       NA   221938
+## FT004   272268       NA   181640   271128
+## FT005       NA       NA   366441       NA
+## FT006   515677   621438   639755   508546
+
+# This feature matrix contains NA for samples in which no chromatographic peak
+# was detected in the feature’s m/z-rt region. While in many cases there might
+# indeed be no peak signal in the respective region, it might also be that there
+# is signal, but the peak detection algorithm failed to detect a chromatographic
+# peak.
+
+# xcms provides the fillChromPeaks method to fill in intensity data for
+# such missing values from the original files. The filled in peaks are added to
+# the chromPeaks matrix and are flagged with an 1 in the "is_filled" column.
+# Below we perform such a filling-in of missing peaks.
+# Filling missing peaks using default settings. Alternatively we could pass a
+# FillChromPeaksParam object to the method.
+xdata <- fillChromPeaks(xdata)
+
+head(featureValues(xdata))
+##       ko15.CDF ko16.CDF ko18.CDF ko19.CDF ko21.CDF ko22.CDF wt15.CDF wt16.CDF
+## FT001       68      629     1362     1799     2129     2409     2762     3311
+## FT002       48      614     1342     1790     5610     2397     2743     3299
+## FT003       30      599     1327     5499     2110     2382     2724     3282
+## FT004      107     5368     1398     5500     2140     2425     2816     3329
+## FT005      101     5369     1394     5501     2143     2429     5846     5939
+## FT006      413     5370     1644     2001     2295     2622     3107     3587
+##       wt18.CDF wt19.CDF wt21.CDF wt22.CDF
+## FT001     3839     4257     4602     4922
+## FT002     3820     4242     4588     4909
+## FT003     3796     6112     6227     4891
+## FT004     3884     6113     4633     4960
+## FT005     6026     6114     4639     6350
+
+# For features without detected peaks in a sample, the method extracts all
+# intensities in the mz-rt region of the feature, integrates the signal and adds
+# a filled-in peak to the chromPeaks matrix. No peak is added if no signal is
+# measured/available for the mz-rt region of the feature. For these, even after
+# filling in missing peak data, a NA is reported in the featureValues matrix.
+
+# It should be mentioned that fillChromPeaks uses columns "rtmin", "rtmax",
+# "mzmin" and "mzmax" from the featureDefinitions table to define the region
+# from which the signal should be integrated to generate the filled-in peak
+# signal. These values correspond however to the positions of the peak apex not
+# the peak boundaries of all chromatographic peaks assigned to a feature. It
+# might be advisable to increase this area in retention time dimension by a
+# constant value appropriate to the average peak width in the experiment. Such a
+# value can be specified with fixedRt of the FillChromPeaksParam. If the average
+# peak width in the experiment is 20 seconds, specifyingfixedRt = 10 ensures
+# that the area from which peaks are integrated is at least 20 seconds wide.
+
+# Below we compare the number of missing values before and after filling in
+# missing values. We can use the parameter filled of the featureValues method to
+# define whether or not filled-in peak values should be returned too.
+
+# Missing values before filling in peaks
+apply(featureValues(xdata, filled = FALSE), MARGIN = 2,
+    FUN = function(z) sum(is.na(z)))
+## ko15.CDF ko16.CDF ko18.CDF ko19.CDF ko21.CDF ko22.CDF wt15.CDF wt16.CDF
+##       72       74       69      119      142      114      101       96
+## wt18.CDF wt19.CDF wt21.CDF wt22.CDF
+##       95      128      136      118
+
+# Missing values after filling in peaks
+apply(featureValues(xdata), MARGIN = 2, FUN = function(z) sum(is.na(z)))
+## ko15.CDF ko16.CDF ko18.CDF ko19.CDF ko21.CDF ko22.CDF wt15.CDF wt16.CDF
+##        7        8        4        8       12        8        8        9
+## wt18.CDF wt19.CDF wt21.CDF wt22.CDF
+##        9       13       13        7
+
+# Next we use the featureSummary function to get a general per-feature summary
+# that includes the number of samples in which a peak was found or the number of
+# samples in which more than one peak was assigned to the feature. Specifying
+# also sample groups breaks down these summary statistics for each individual
+# sample group.
+head(featureSummary(xdata, group = xdata$sample_group))
+##       count      perc multi_count multi_perc       rsd KO_count   KO_perc
+## FT001    12 100.00000           0   0.000000 0.1789898        6 100.00000
+## FT002    11  91.66667           1   9.090909 0.2409441        5  83.33333
+## FT003     9  75.00000           3  33.333333 0.2844117        5  83.33333
+## FT004     9  75.00000           2  22.222222 0.3082528        4  66.66667
+## FT005     5  41.66667           0   0.000000 0.4824173        4  66.66667
+## FT006    11  91.66667           7  63.636364 0.5229604        5  83.33333
+##       KO_multi_count KO_multi_perc    KO_rsd WT_count   WT_perc
+## FT001              0             0 0.2027357        6 100.00000
+## FT002              1            20 0.3653441        6 100.00000
+## FT003              2            40 0.2562703        4  66.66667
+## FT004              0             0 0.4694612        5  83.33333
+## FT005              0             0 0.2492851        1  16.66667
+## FT006              4            80 0.5059513        6 100.00000
+##       WT_multi_count WT_multi_perc    WT_rsd
+## FT001              0             0 0.1601279
+## FT002              0             0 0.1069526
+## FT003              1            25 0.3335925
+## FT004              2            40 0.1840914
+## FT005              0             0        NA
+## FT006              3            50 0.5758382
+
+# The performance of peak detection, alignment and correspondence should always
+# be evaluated by inspecting extracted ion chromatograms e.g. of known
+# compounds, internal standards or identified features in general. The
+# featureChromatograms function allows to extract chromatograms for each feature
+# present in featureDefinitions. The returned Chromatograms object contains an
+# ion chromatogram for each feature (each row containing the data for one
+# feature) and sample (each column representing containing data for one sample).
+# Below we extract the chromatograms for the first 4 features.
+feature_chroms <- featureChromatograms(xdata, features = 1:4)
+feature_chroms
+## Chromatograms with 4 rows and 12 columns
+##                   1              2              3              4
+##      <Chromatogram> <Chromatogram> <Chromatogram> <Chromatogram>
+## [1,]     length: 38     length: 38     length: 39     length: 38
+## [2,]     length: 42     length: 41     length: 43     length: 41
+## [3,]     length: 36     length: 36     length: 35     length: 35
+## [4,]     length: 67     length: 69     length: 70     length: 70
+##                   5              6              7              8
+##      <Chromatogram> <Chromatogram> <Chromatogram> <Chromatogram>
+## [1,]     length: 37     length: 37     length: 39     length: 38
+## [2,]     length: 41     length: 41     length: 42     length: 42
+## [3,]     length: 36     length: 36     length: 36     length: 36
+## [4,]     length: 73     length: 73     length: 66     length: 69
+##                   9             10             11             12
+##      <Chromatogram> <Chromatogram> <Chromatogram> <Chromatogram>
+## [1,]     length: 38     length: 40     length: 38     length: 36
+## [2,]     length: 41     length: 44     length: 42     length: 40
+## [3,]     length: 37     length: 34     length: 34     length: 36
+## [4,]     length: 71     length: 71     length: 75     length: 73
+## phenoData with 2 variables
+## featureData with 5 variables
+
+# Plot extracted ion chromatograms for feature number 3 and 4
+pdf("output/test/eic_features_3and4.pdf")
+par(mfrow = c(1, 2))
+plot(feature_chroms[3, ], col = group_colors[feature_chroms$sample_group])
+plot(feature_chroms[4, ], col = group_colors[feature_chroms$sample_group])
+dev.off()
+
+# Finally perform a principal component analysis to evaluate the grouping of the
+# samples in this experiment. Note that we did not perform any data
+# normalization hence the grouping might (and will) also be influenced by
+# technical biases.
+
+# Extract the features and log2 transform them
+ft_ints <- log2(featureValues(xdata, value = "into"))
+
+# Perform a PCA omitting all features with an NA in any of the samples. Also,
+# the intensities are mean centered.
+pc <- prcomp(t(na.omit(ft_ints)), center = TRUE)
+
+## Plot the PCA
+cols <- group_colors[xdata$sample_group]
+pcSummary <- summary(pc)
+pdf("output/test/pca.pdf")
+plot(pc$x[, 1], pc$x[,2], pch = 21, main = "",
+    xlab = paste0("PC1: ", format(pcSummary$importance[2, 1] * 100,
+    digits = 3), " % variance"),
+    ylab = paste0("PC2: ", format(pcSummary$importance[2, 2] * 100,
+    digits = 3), " % variance"),
+    col = "darkgrey", bg = cols, cex = 2)
+grid()
+text(pc$x[, 1], pc$x[,2], labels = xdata$sample_name, col = "darkgrey",
+    pos = 3, cex = 2)
+dev.off()
+
+# From the PCA results, we can see the expected separation between the KO and WT
+# samples on PC2. On PC1 samples separate based on their ID, samples with an
+# ID <= 18 from samples with an ID > 18. This separation might be caused by a
+# technical bias (e.g. measurements performed on different days/weeks) or due to
+# biological properties of the mice analyzed (sex, age, litter mates etc).
