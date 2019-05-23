@@ -11,7 +11,7 @@ library(pander)
 library(magrittr)
 
 # Helper functions for selecting data files
-source('functions.R')
+source('../functions.R')
 
 #### Data import ####
 
@@ -56,118 +56,178 @@ raw_data <- readMSData(files = test_qcs_paths, pdata = new("NAnnotatedDataFrame"
 
 # Get total number of spectra
 length(raw_data)
+## [1] 18423
 
 # Look at retention time values
 head(rtime(raw_data))
+## F1.S0001 F1.S0002 F1.S0003 F1.S0004 F1.S0005 F1.S0006
+##   0.3672   0.5241   1.1115   1.7150   2.3154   2.8934
 
 # Organise mz values by file
 mzs <- mz(raw_data)
 mzs_by_file <- split(mzs, f = fromFile(raw_data))  # Split the list by file
 length(mzs_by_file)
+## [1] 8
 
-# Plot base peak chromatogram for each file. aggregationFun is set to "max" to
-# return for each spectrum the maximal intensity thereby creating the BPC from
-# raw data
+# LC/MS can be used to identify and quantify metabolites. They are separated
+# within a column and, at each time point when they come out of the column, the
+# abundance (intensity) of a particular group of metabolites is measured by the
+# mass spectrometer. This is called a chromatogram.
+
+# MS data can be read from the files to get the base peak chromatogram. This
+# chromatogram monitors only the most intense peak in each spectrum. This means
+# that the base peak chromatogram represents the intensity of the most intense
+# peak at every point in the analysis. Base peak chromatograms often have a
+# cleaner look and thus are more informative than TIC chromatograms because the
+# background is reduced by focusing on a single analyte at every point.
 bpis <- chromatogram(raw_data, aggregationFun = "max")
 # Define colors for the 4 block groups
 group_colors <- paste0(brewer.pal(4, "Set1")[1:4], "60")
 names(group_colors) <- c("block1", "block2", "block3", "block4")
 
 ## Plot all chromatograms from the files
-pdf("./centwave/bpc_plot.pdf", width = 20, height = 8)
+pdf("./output/gsk/bpc_plot.pdf", width = 20, height = 8)
 plot(bpis, col = group_colors[raw_data$sample_group])
 dev.off()
 
-## Get the total ion chromatogram. This reads data from the files.
+# Plot all chromatograms - this is the total ion chromatogram or TIC and
+# represents the summed intensity across the entire range of masses being
+# detected at every point in the analysis. The range is typically several
+# hundred mass-to-charge units or more. In complex samples, the TIC chromatogram
+# often provides limited information as multiple analytes elute simultaneously,
+# obscuring individual species.
 tis <- chromatogram(raw_data, aggregationFun = "sum")
-## Define colors for the two groups
+## Define colors for the 4 block groups
 group_colors <- paste0(brewer.pal(4, "Set1")[1:4], "60")
 names(group_colors) <- c("block1", "block2", "block3", "block4")
 
 ## Plot all chromatograms - this is the total ion chromatogram
-pdf("./centwave/tic_plot.pdf", width = 20, height = 8)
+pdf("./output/gsk/tic_plot.pdf", width = 20, height = 8)
 plot(tis, col = group_colors[raw_data$sample_group])
 dev.off()
 
-# Extract chromatogram of first sample
+# Extract chromatogram of first sample, check retention times
 bpi_1 <- bpis[1, 1]
 # Access its retention time
 head(rtime(bpi_1))
 ## F1.S0001 F1.S0002 F1.S0003 F1.S0004 F1.S0005 F1.S0006
 ##   0.3672   0.5241   1.1115   1.7150   2.3154   2.8934
-# Access its intensity values
+# Check intensity values
 head(intensity(bpi_1))
 ## F1.S0001 F1.S0002 F1.S0003 F1.S0004 F1.S0005 F1.S0006
 ##     8278  8567647  7064262  6896613  9335845  6393502
 
-# Create boxplots representing distribution of total ion currents per file.
-# These plots are useful to spot problematic or failing MS runs.
+# Create boxplots representing the distribution of total ion currents per file.
+# Such plots can be very useful to spot problematic or failing MS runs.
 tc <- split(tic(raw_data), f = fromFile(raw_data))
-pdf("./centwave/boxplot.pdf")
-boxplot(tc, col = group_colors[raw_data$sample_group], ylab = "intensity", main = "Total ion current")
+pdf("./output/gsk/boxplot.pdf")
+boxplot(tc, main="Distribution of total ion currents from GSK dataset files",
+col = group_colors[raw_data$sample_group],
+ylab = "intensity", main = "Total ion current")
 dev.off()
 
-# Need to get m/z against intensitity plot for a specific RT
+#### Chromatographic peak detection ####
+
+# At each retention time point, a group of metabolites is ionized (charged) and
+# fired through a mass spectrometer. The metabolite ions can be separated based
+# on their mass-to-charge ratio. This adds another dimension to the graph: an
+# axis with the mass-to-charge ratio of the metabolites found at that time
+# point, and their intensities.
+
+# Therefore, there are multiple spectra Each spectrum can be simplified into a
+# graph of peaks (local maxima).
+
+# To get m/z against intensity plot for a specific RT
 
 # List spectra
 spectra(raw_data)
 
-# Number of spectra
+# Get the number of spectra present
 length(spectra(raw_data))
+## [1] 18423
 
-# Get second spectrum
+# Get second spectrum.
 sp2 <- raw_data[[2]]
 
 # Get RT
 rtime(sp2)
 ## [1] 0.5241
 
-# Plot spectrum which is a graph of m/z against signal intensity
-pdf("./centwave/spectrum.pdf")
+# Plot second spectrum which is a graph of m/z against signal intensity
+pdf("./output/gsk/sp2.pdf")
 plot(sp2)
 dev.off()
 
 # Define mz and RT ranges to extract main peak from second spectrum
-pdf("./centwave/peak.pdf")
-peak <- filterMz(filterRt(raw_data, rt = c(0.5240, 0.5241)), mz = c(0, 125))
+pdf("./output/gsk/peak.pdf")
+peak <- filterMz(filterRt(raw_data, rt = c(0.5241, 0.5241)), mz = c(50, 125))
 # XIC displays a combined plot of RT vs m/z and RT vs largest signal in spectrum
-plot(peak, type="XIC")
+plot(peak, xaxt="none", type="XIC")
+axis(1, seq(0.3, 0.7, 0.05))
 dev.off()
 
 # Zoom into a part of the above spectrum using above m/z and RT ranges
-pdf("./centwave/zoom_peak.pdf")
+pdf("./output/gsk/zoom_peak.pdf")
 plot(peak, centroided = TRUE)
 dev.off()
 
-####
+#### Handling raw MS data ####
+
+# The mzR package provides an interface to the proteowizard C/C++ code base to
+# access various raw data files, such as mzML, mzXML, netCDF, and mzData. The
+# data is accessed on-disk, i.e it is not loaded entirely in memory by default
+# but only when explicitly requested. The three main functions are openMSfile to
+# create a file handle to a raw data file, header to extract metadata about the
+# spectra contained in the file and peaks to extract one or multiple spectra of
+# interest. Other functions such as instrumentInfo, or runInfo can be used to
+# gather general information about a run.
+#
+# Below, we access the raw data file downloaded in the previous section and open
+# a file handle that will allow us to extract data and metadata of interest.
 
 # Get metadata about spectra contained in files using header function
 hd <- header(raw_data)
 
+# Get number of scans. There are 31112 scans
 dim(hd)
 ## [1] 31112    26
 
+names(hd)
+## [1] "fileIdx"                  "spIdx"
+## [3] "smoothed"                 "seqNum"
+## [5] "acquisitionNum"           "msLevel"
+## [7] "originalPeaksCount"       "totIonCurrent"
+## [9] "retentionTime"            "basePeakMZ"
+## [11] "basePeakIntensity"        "collisionEnergy"
+## [13] "ionisationEnergy"         "highMZ"
+## [15] "precursorScanNum"         "precursorMZ"
+## [17] "precursorCharge"          "precursorIntensity"
+## [19] "mergedScan"               "mergedResultScanNum"
+## [21] "mergedResultStartScanNum" "mergedResultEndScanNum"
+## [23] "injectionTime"            "spectrumId"
+## [25] "centroided"               "ionMobilityDriftTime"
+## [27] "polarity"                 "spectrum"
+
+
 # Extract metadata and scan data for scan 1000
 hd[1000, ]
-##      seqNum acquisitionNum msLevel polarity peaksCount totIonCurrent
-## 1000   1000           1000       1        0        417      24785388
-##      retentionTime basePeakMZ basePeakIntensity collisionEnergy
-## 1000       562.496   91.00389          14420198               0
-##      ionisationEnergy    lowMZ   highMZ precursorScanNum precursorMZ
-## 1000                0 52.33684 989.8309                0           0
-##      precursorCharge precursorIntensity mergedScan mergedResultScanNum
-## 1000               0                  0          0                   0
-##      mergedResultStartScanNum mergedResultEndScanNum injectionTime
-## 1000                        0                      0      59.42852
-##                              filterString
-## 1000 FTMS - c ESI Full ms [50.00-1000.00]
-##                                         spectrumId centroided
-## 1000 controllerType=0 controllerNumber=1 scan=1000       TRUE
-##      ionMobilityDriftTime
-## 1000                   NA
+##          fileIdx spIdx smoothed seqNum acquisitionNum msLevel
+## F1.S1000       1  1000       NA   1000           1000       1
+##          originalPeaksCount totIonCurrent retentionTime basePeakMZ
+## F1.S1000                  1      20235066         557.4         -1
+##          basePeakIntensity collisionEnergy ionisationEnergy highMZ
+## F1.S1000                -1              -1               -1     -1
+##          precursorScanNum precursorMZ precursorCharge precursorIntensity
+## F1.S1000               -1          -1              -1                 -1
+##          mergedScan mergedResultScanNum mergedResultStartScanNum
+## F1.S1000         -1                  -1                       -1
+##          mergedResultEndScanNum injectionTime spectrumId centroided
+## F1.S1000                     -1            -1  scan=1000         NA
+##          ionMobilityDriftTime polarity spectrum
+## F1.S1000                   -1       NA     1000
 
 # Extract spectra from scan 1000
-head(peaks(ms, 1000))
+head(peaks(raw_data, 1000))
 ## [,1]     [,2]
 ## [1,] 52.33684 3490.230
 ## [2,] 52.63135 3543.195

@@ -282,12 +282,14 @@ dev.off()
 ###################
 
 # Analytes can elute at different times between samples during chromatography.
-# Retention time correction can align same peak signals between different
-# samples within an experiment. Use adjustRtime function to perform RT
-# correction with obiwarp method
+# Factors such as changes in pH, temperature (column) and elution solvents
+# composition can introduce some variability to chromatographic retention time.
+# Retention time correction can correct this shift and align same peak signals
+# between different samples within an experiment. Use adjustRtime function to
+# perform RT correction with obiwarp method
 xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
 
-## Extract adjusted retention times
+# Extract adjusted retention times
 head(adjustedRtime(xdata))
 ## F01.S0001 F01.S0002 F01.S0003 F01.S0004 F01.S0005 F01.S0006
 ##  2501.378  2502.958  2504.538  2506.118  2507.699  2509.280
@@ -377,9 +379,9 @@ dev.off()
 ########################
 
 # Correspondence matches peaks between samples using groupChromPeaks function.
-# The peak density method is used to group chromatographic peaks by
-# combining chromatographic peaks depending on the density of peaks along the
-# retention time axis within small slices along the mz dimension
+# The peak density method is used to group chromatographic peaks by combining
+# chromatographic peaks depending on the density of peaks along the retention
+# time axis within small slices along the mz dimension.
 
 # Below, a chromatogram is plotted for an mz slice with multiple chromatographic
 # peaks within each sample. A value of 0.4 is used for the minFraction
