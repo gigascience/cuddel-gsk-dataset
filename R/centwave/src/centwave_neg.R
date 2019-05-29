@@ -9,6 +9,9 @@ library(xcms)
 library(RColorBrewer)
 library(pander)
 library(magrittr)
+library(pheatmap)
+
+# cd /Users/peterli/PhpstormProjects/cuddel-gsk-dataset/R/centwave
 
 # Helper functions for selecting data files
 source('../functions.R')
@@ -62,6 +65,11 @@ length(raw_data)
 head(rtime(raw_data))
 ## F1.S0001 F1.S0002 F1.S0003 F1.S0004 F1.S0005 F1.S0006
 ##   0.3672   0.5241   1.1115   1.7150   2.3154   2.8934
+
+# Number of RTs
+length(rtime(raw_data))
+## [1] 18423
+# Basically there are spectra from 18,423 retention times
 
 # Organise mz values by file
 mzs <- mz(raw_data)
@@ -126,6 +134,32 @@ col = group_colors[raw_data$sample_group],
 ylab = "intensity", main = "Total ion current")
 dev.off()
 
+# We can cluster the samples based on similarity of their base peak
+# chromatogram. This can also be helpful to spot potentially problematic samples
+# in an experiment or generally get an initial overview of the sample grouping
+# in the experiment. Since retention times between samples are not exactly
+# identical, the bin function is used to group intensities in fixed time ranges
+# (bins) along the retention time axis. In the present example, we use a bin
+# size of 1 second, the default is 0.5 seconds. Clustering is performed using
+# complete linkage hierarchical clustering on the pairwise correlations of the
+# binned base peak chromatograms.
+
+## Bin the BPC
+bpis_bin <- bin(bpis, binSize = 2)
+
+## Calculate correlation on the log2 transformed base peak intensities
+cormat <- cor(log2(do.call(cbind, lapply(bpis_bin, intensity))))
+colnames(cormat) <- rownames(cormat) <- raw_data$sample_name
+
+## Define which phenodata columns should be highlighted in the plot
+ann <- data.frame(group = raw_data$sample_group)
+rownames(ann) <- raw_data$sample_name
+
+## Perform the cluster analysis
+pdf("./output/gsk/bpc_similarity.pdf")
+pheatmap(cormat, annotation = ann, annotation_color = list(group = group_colors))
+dev.off()
+
 #### Chromatographic peak detection ####
 
 # At each retention time point, a group of metabolites is ionized (charged) and
@@ -134,7 +168,7 @@ dev.off()
 # axis with the mass-to-charge ratio of the metabolites found at that time
 # point, and their intensities.
 
-# Therefore, there are multiple spectra Each spectrum can be simplified into a
+# Therefore, there are multiple spectra. Each spectrum can be simplified into a
 # graph of peaks (local maxima).
 
 # To get m/z against intensity plot for a specific RT
@@ -149,7 +183,7 @@ length(spectra(raw_data))
 # Get second spectrum.
 sp2 <- raw_data[[2]]
 
-# Get RT
+# Get RT for second spectrum
 rtime(sp2)
 ## [1] 0.5241
 
@@ -188,9 +222,9 @@ dev.off()
 # Get metadata about spectra contained in files using header function
 hd <- header(raw_data)
 
-# Get number of scans. There are 31112 scans
+# Get number of scans or spectra. There are 18423 scans/spectra
 dim(hd)
-## [1] 31112    26
+## [1] 18423    31
 
 names(hd)
 ## [1] "fileIdx"                  "spIdx"
@@ -231,7 +265,7 @@ head(peaks(raw_data, 1000))
 ## [,1]     [,2]
 ## [1,] 52.33684 3490.230
 ## [2,] 52.63135 3543.195
-## [3,] 53.25687 3011.438
+## [3,] 53.25687 3011.438q
 ## [4,] 54.01475 3457.050
 ## [5,] 54.73533 3067.098
 ## [6,] 55.42279 3363.786

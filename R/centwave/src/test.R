@@ -3,8 +3,11 @@ library(faahKO)
 library(RColorBrewer)
 library(pander)
 library(magrittr)
+library(pheatmap)
 
 # XCMS tutorial from https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html
+
+# Go into R/centwave directory
 
 #### Data import ####
 
@@ -79,6 +82,31 @@ boxplot(tc, main="Distribution of total ion currents from faahKO dataset files",
     ylab = "intensity", main = "Total ion current")
 dev.off()
 
+# Also, we can cluster the samples based on similarity of their base peak
+# chromatogram. This can also be helpful to spot potentially problematic samples
+# in an experiment or generally get an initial overview of the sample grouping
+# in the experiment. Since the retention times between samples are not exactly
+# identical, we use the bin function to group intensities in fixed time ranges
+# (bins) along the retention time axis. In the present example we use a bin size
+# of 1 second, the default is 0.5 seconds. The clustering is performed using
+# complete linkage hierarchical clustering on the pairwise correlations of the
+# binned base peak chromatograms.
+## Bin the BPC
+bpis_bin <- bin(bpis, binSize = 2)
+
+## Calculate correlation on the log2 transformed base peak intensities
+cormat <- cor(log2(do.call(cbind, lapply(bpis_bin, intensity))))
+colnames(cormat) <- rownames(cormat) <- raw_data$sample_name
+
+## Define which phenodata columns should be highlighted in the plot
+ann <- data.frame(group = raw_data$sample_group)
+rownames(ann) <- raw_data$sample_name
+
+## Perform the cluster analysis
+pdf("output/test/pheatmap.pdf")
+pheatmap(cormat, annotation = ann, annotation_color = list(group = group_colors))
+dev.off()
+
 #### Chromatographic peak detection ####
 
 # Evaluate a typical chromatographic peak width by plotting the extracted ion
@@ -105,6 +133,24 @@ dev.off()
 # Detect peaks using centwave. Noise is set to 500 reduce running time.
 cwp <- CentWaveParam(peakwidth = c(20, 80), noise = 5000)
 xdata <- findChromPeaks(raw_data, param = cwp, BPPARAM = bpparam())
+
+## New
+
+# Note that we can also perform the peak detection on the extracted ion
+# chromatogram. This can help to evaluate different peak detection settings.
+# Only be aware that peak detection on an extracted ion chromatogram will not
+# consider the ppm parameter and that the estimation of the background signal is
+# different to the peak detection on the full data set; values for the snthresh
+# will hence have different consequences. Below we perform the peak detection
+# with the findChromPeaks function on the extracted ion chromatogram. The
+# submitted parameter object defines which algorithm will be used and allows to
+# define the settings for this algorithm. We use the centWave algorithm with
+# default settings, except for snthresh.
+xchr <- findChromPeaks(chr_raw, param = CentWaveParam(snthresh = 2))
+
+# Need to comment on this method - probably not as good as doing it on the
+# full data set.
+##
 
 # Results returned in XCMSnExp object and are accessed with chromPeaks method
 head(chromPeaks(xdata))
