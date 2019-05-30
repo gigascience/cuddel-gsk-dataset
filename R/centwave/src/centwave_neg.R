@@ -223,9 +223,9 @@ dev.off()
 # ion mode data
 
 ht(rtime(raw_data))
-F1.S0001  F1.S0002  F1.S0003 F1.S0004  F1.S0005  F1.S0006
-[1,]    0.3672    0.5241    1.1115    1.715    2.3154    2.8934
-[2,] 1436.5604 1437.1133 1437.7089 1438.290 1438.8683 1439.4577
+## F1.S0001  F1.S0002  F1.S0003 F1.S0004  F1.S0005  F1.S0006
+## [1,]    0.3672    0.5241    1.1115    1.715    2.3154    2.8934
+## [2,] 1436.5604 1437.1133 1437.7089 1438.290 1438.8683 1439.4577
 
 
 ## Define the rt and m/z range of the peak area
@@ -242,6 +242,44 @@ pdf("./output/gsk/peak_tryptophan.pdf")
 plot(peak, xaxt="none", type="XIC")
 dev.off()
 
+
+#### Find pyruvate peak ####
+
+# Pyruvic acid is CH3COCOOH (C3H4O3). As a negative ion, it is pyruvate which is
+# CH3COCOO- (C3H3O3) and has a monoisotopic mass of 87.00876754.
+
+## Define the rt and m/z range of the peak area
+rtr <- c(0.3672, 1439.4577)
+mzr <- c(87.008, 87.009)
+## extract the chromatogram
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+pdf("./output/gsk/peak_pyruvate.pdf")
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+dev.off()
+
+peak <- filterMz(filterRt(raw_data, rt = c(0.5241, 0.5241)), mz = c(50, 125))
+pdf("./output/gsk/peak_tryptophan.pdf")
+plot(peak, xaxt="none", type="XIC")
+dev.off()
+
+#### Find lactate peak ####
+
+# Lactic acid is CH3CH(OH)CO2H (C3H6O3). As a negative ion, it is lactate which
+# is C3H5O3- and has a monoisotopic mass of 89.0244176.
+
+## Define the rt and m/z range of the peak area
+rtr <- c(0.3672, 1439.4577)
+mzr <- c(89.024, 89.025)
+## extract the chromatogram
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+pdf("./output/gsk/peak_lactate.pdf")
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+dev.off()
+
+peak <- filterMz(filterRt(raw_data, rt = c(0.5241, 0.5241)), mz = c(50, 125))
+pdf("./output/gsk/peak_tryptophan.pdf")
+plot(peak, xaxt="none", type="XIC")
+dev.off()
 
 #### Handling raw MS data ####
 
