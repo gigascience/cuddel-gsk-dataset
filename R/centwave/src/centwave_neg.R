@@ -205,6 +205,44 @@ pdf("./output/gsk/zoom_peak.pdf")
 plot(peak, centroided = TRUE)
 dev.off()
 
+#### Find tryptophan peak ####
+
+# To look for the peak corresponding to tryptophan, we need to get the molecular
+# mass of the amino acid and subtract mass of 1 electron from it. Then look for
+# the peak at this m/z value in negative ionisation mode data.
+#
+# Used this [mass calculator](https://www.envipat.eawag.ch/index.php)
+
+# Using the molecular formula of Tryptophan C11H12N2O2, its molecular mass is
+# 204.0899 mol mass without adducts - use 3 decimal points for orbitrap ppm.
+
+# Tryptophan as a negative ion has a monoisotopic mass 203.0826012.
+
+# For tryptophan as a positive ion from the extra proton, the monoisotopic mass
+# is 205.0971541. Use this m/z value to look for the tryptophan peak in positive
+# ion mode data
+
+ht(rtime(raw_data))
+F1.S0001  F1.S0002  F1.S0003 F1.S0004  F1.S0005  F1.S0006
+[1,]    0.3672    0.5241    1.1115    1.715    2.3154    2.8934
+[2,] 1436.5604 1437.1133 1437.7089 1438.290 1438.8683 1439.4577
+
+
+## Define the rt and m/z range of the peak area
+rtr <- c(0.3672, 1439.4577)
+mzr <- c(203.0820, 203.083)
+## extract the chromatogram
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+pdf("./output/gsk/peak_tryptophan.pdf")
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+dev.off()
+
+peak <- filterMz(filterRt(raw_data, rt = c(0.5241, 0.5241)), mz = c(50, 125))
+pdf("./output/gsk/peak_tryptophan.pdf")
+plot(peak, xaxt="none", type="XIC")
+dev.off()
+
+
 #### Handling raw MS data ####
 
 # The mzR package provides an interface to the proteowizard C/C++ code base to
