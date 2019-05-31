@@ -228,10 +228,10 @@ ht(rtime(raw_data))
 ## [2,] 1436.5604 1437.1133 1437.7089 1438.290 1438.8683 1439.4577
 
 
-## Define the rt and m/z range of the peak area
+# Define rt and m/z range for peak area
 rtr <- c(0.3672, 1439.4577)
 mzr <- c(203.0820, 203.083)
-## extract the chromatogram
+# Extract chromatogram
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 pdf("./output/gsk/peak_tryptophan.pdf")
 plot(chr_raw, col = group_colors[chr_raw$sample_group])
@@ -248,10 +248,10 @@ dev.off()
 # Pyruvic acid is CH3COCOOH (C3H4O3). As a negative ion, it is pyruvate which is
 # CH3COCOO- (C3H3O3) and has a monoisotopic mass of 87.00876754.
 
-## Define the rt and m/z range of the peak area
+# Define rt and m/z range for peak area
 rtr <- c(0.3672, 1439.4577)
 mzr <- c(87.008, 87.009)
-## extract the chromatogram
+# Extract chromatogram
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 pdf("./output/gsk/peak_pyruvate.pdf")
 plot(chr_raw, col = group_colors[chr_raw$sample_group])
@@ -267,10 +267,10 @@ dev.off()
 # Lactic acid is CH3CH(OH)CO2H (C3H6O3). As a negative ion, it is lactate which
 # is C3H5O3- and has a monoisotopic mass of 89.0244176.
 
-## Define the rt and m/z range of the peak area
+# Define rt and m/z range for peak area
 rtr <- c(0.3672, 1439.4577)
 mzr <- c(89.024, 89.025)
-## extract the chromatogram
+# Extract chromatogram
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 pdf("./output/gsk/peak_lactate.pdf")
 plot(chr_raw, col = group_colors[chr_raw$sample_group])

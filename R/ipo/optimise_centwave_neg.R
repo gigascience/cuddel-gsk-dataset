@@ -44,16 +44,17 @@ library(CAMERA)
 library(rsm)
 library(IPO)
 library(snow)  # For multicore tasking
+library(BiocParallel)  # Not sure if this required
 
 # Helper functions for selecting data files
-source('functions.R')
+source('../functions.R')
 
 #######################################
 #### Basic user begin editing here ####
 #######################################
 
 # Define location of data files for processing
-wd <- "/home/peter/gsk/raw/esi_neg/netcdf/"
+wd <- "/Users/peterli/gsk/cdf/esi_neg/netcdf/"
 setwd(wd)
 
 # Specify directories subordinate to the working directory in which the input
@@ -63,7 +64,7 @@ setwd(wd)
 # timepoint/secondary environmental variable (e.g., depth)
 block_dirs <- c("block1neg/", "block2neg/", "block3neg", "block4neg")
 
-# Specify which of the directories above you wish to analyze this time through
+# Specify which directories above you wish to analyze this time through
 # chosenFileSubset <- "block1neg"
 chosenFileSubset <- c("block1neg", "block2neg", "block3neg", "block4neg")
 
@@ -72,6 +73,8 @@ chosenFileSubset <- c("block1neg", "block2neg", "block3neg", "block4neg")
 # plasma_samples <- getPlasmaSampleNames()
 # plasma_sample_files <- paste0(plasma_samples, ".cdf")
 # excluded_files <- plasma_sample_files
+excluded_files <- c("GSKblock1neg_mzwid05diff05.csv", "GSKblock2neg_mzwid05diff05.csv",
+    "GSKblock3neg_mzwid05diff05.csv", "GSKblock4neg_mzwid05diff05.csv")
 
 # If planning to use IPO, specify the ID numbers of the files for use in
 # optimization; otherwise, IPO will try to use the entire dataset which might
